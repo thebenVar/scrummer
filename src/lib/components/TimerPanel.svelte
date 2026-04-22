@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tracker } from '$lib/stores/tracker.svelte';
 	import StatusBadge from './StatusBadge.svelte';
+	import UserTimeChart from './UserTimeChart.svelte';
 
 	let clientInput = $state('');
 	let projectInput = $state('');
@@ -10,26 +11,9 @@
 	let availableProjects = $derived(tracker.getProjects(clientInput));
 	let availableTasks = $derived(tracker.getTasks(clientInput, projectInput));
 
-	let shiftProgressPercent = $derived(Math.min(100, Math.round((tracker.totalTodaySeconds / tracker.currentShiftGoalSeconds) * 100)));
-	let userQueue = $derived(tracker.state.pausedTimers.filter(t => t.user === tracker.state.currentUser));
-
-	let userInput = $state(tracker.state.currentUser);
 	let assigneeInput = $state(tracker.state.currentUser);
 
-	function handleUserChange() {
-		if (userInput.trim()) {
-			tracker.switchUser(userInput);
-			userInput = tracker.state.currentUser; 
-			assigneeInput = tracker.state.currentUser;
-		}
-	}
-
-	function handleShiftChange(e: Event) {
-		const val = Number((e.target as HTMLInputElement).value);
-		if (!isNaN(val) && val > 0) {
-			tracker.setShiftGoal(val);
-		}
-	}
+	let showNewTaskForm = $state(false);
 
 	function handleAddPending() {
 		if (!clientInput.trim() || !projectInput.trim() || !taskInput.trim() || !assigneeInput.trim()) return;
@@ -39,19 +23,20 @@
 		projectInput = '';
 		taskInput = '';
 		assigneeInput = tracker.state.currentUser;
+		showNewTaskForm = false;
 	}
 
 	function handleStart() {
 		if (!clientInput.trim() || !projectInput.trim() || !taskInput.trim() || !assigneeInput.trim()) return;
 		if (assigneeInput.trim() !== tracker.state.currentUser) {
 			tracker.switchUser(assigneeInput.trim());
-			userInput = tracker.state.currentUser;
 		}
 		tracker.startTimer(clientInput, projectInput, taskInput);
 		clientInput = '';
 		projectInput = '';
 		taskInput = '';
 		assigneeInput = tracker.state.currentUser;
+		showNewTaskForm = false;
 	}
 
 	function handlePauseResume() {
@@ -92,49 +77,6 @@
 
 <div class="animate-fade-up mx-auto max-w-2xl">
 	<div class="overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-2xl backdrop-blur-xl dark:bg-slate-900/50">
-		<!-- Shift Progress Bar & User Select -->
-		<div class="border-b border-slate-200/50 bg-indigo-50/50 px-6 py-3 dark:border-white/5 dark:bg-indigo-900/20">
-			<div class="flex items-center justify-between text-xs font-semibold text-indigo-800 dark:text-indigo-300">
-				<div class="flex items-center gap-2">
-					<label for="user" class="sr-only">User</label>
-					<span class="text-lg">👤</span>
-					<input 
-						id="user" 
-						type="text" 
-						list="users-list"
-						bind:value={userInput} 
-						onchange={handleUserChange}
-						class="w-32 bg-transparent pb-0.5 outline-none border-b border-indigo-200 transition-colors focus:border-indigo-500 dark:border-indigo-700/50 dark:focus:border-indigo-400 placeholder:text-indigo-400 dark:placeholder:text-indigo-500"
-						placeholder="Username"
-					/>
-					<datalist id="users-list">
-						{#each tracker.state.users as userOption}
-							<option value={userOption}></option>
-						{/each}
-					</datalist>
-				</div>
-				<div class="flex items-center gap-1.5">
-					<span>{tracker.formatDuration(tracker.totalTodaySeconds)} /</span>
-					<input
-						type="number"
-						min="1"
-						max="24"
-						value={tracker.currentShiftGoalHours}
-						onchange={handleShiftChange}
-						class="w-10 rounded bg-white/50 px-1 py-0.5 text-center outline-none ring-1 ring-indigo-200 transition-all focus:ring-2 focus:ring-indigo-500/50 dark:bg-black/20 dark:ring-indigo-700/50"
-						aria-label="Shift Goal (Hours)"
-					/>
-					<span>h ({shiftProgressPercent}%)</span>
-				</div>
-			</div>
-			<div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-indigo-200/50 dark:bg-indigo-900/50">
-				<div 
-					class="h-full rounded-full bg-indigo-600 transition-all duration-1000 ease-out dark:bg-indigo-400" 
-					style="width: {shiftProgressPercent}%"
-				></div>
-			</div>
-		</div>
-
 		<!-- Header / Time Zone -->
 		<div class="flex items-center justify-between border-b border-white/10 bg-slate-100/50 px-6 py-4 dark:bg-black/20">
 			<h2 class="text-lg font-semibold text-slate-800 dark:text-slate-100">Timer</h2>
@@ -145,6 +87,10 @@
 				<span>{currentTime}</span>
 			</div>
 		</div>
+
+		{#if tracker.state.activeTimer}
+			<UserTimeChart user={tracker.state.activeTimer.user} />
+		{/if}
 
 		<div class="p-6 sm:p-8">
 			{#if tracker.state.activeTimer}
@@ -191,9 +137,35 @@
 						Discard session
 					</button>
 				</div>
-			{:else}
-				<!-- Input Form View -->
-				<div class="flex flex-col gap-5">
+
+				{#if !showNewTaskForm}
+					<div class="mt-8 flex justify-center border-t border-slate-200/50 pt-6 dark:border-white/10">
+						<button
+							onclick={() => (showNewTaskForm = true)}
+							class="flex items-center gap-2 rounded-xl bg-slate-100 px-6 py-3 text-sm font-semibold text-slate-600 transition-all hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+						>
+							➕ Add Another Task
+						</button>
+					</div>
+				{/if}
+			{/if}
+
+			{#if !tracker.state.activeTimer || showNewTaskForm}
+				<div class={tracker.state.activeTimer ? "animate-fade-up mt-8 border-t border-slate-200/50 pt-8 dark:border-white/10" : ""}>
+					{#if tracker.state.activeTimer}
+						<div class="mb-5 flex items-center justify-between px-2">
+							<h3 class="font-semibold text-slate-800 dark:text-slate-200">Start or Queue a Task</h3>
+							<button
+								onclick={() => (showNewTaskForm = false)}
+								class="text-sm font-medium text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+							>
+								Cancel
+							</button>
+						</div>
+					{/if}
+
+					<!-- Input Form View -->
+					<div class="flex flex-col gap-5">
 					<div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
 						<!-- Client -->
 						<div class="flex flex-col gap-1.5">
@@ -284,64 +256,73 @@
 							⏳ Add to Queue
 						</button>
 					</div>
+					</div>
 				</div>
 			{/if}
 		</div>
 
 		<!-- Queued Tasks Section -->
-		{#if userQueue.length > 0}
-			<div class="border-t border-slate-200/50 bg-slate-100/30 px-6 py-5 dark:border-white/5 dark:bg-black/10 sm:px-8">
-				<h3 class="mb-4 text-sm font-semibold text-slate-800 dark:text-slate-200">Queued Tasks</h3>
-				<div class="flex flex-col gap-3">
-					{#each userQueue as taskItem (taskItem.id)}
-						<div class="flex flex-col justify-between gap-3 rounded-xl border border-slate-200/50 bg-white p-4 shadow-sm transition-all hover:border-slate-300 dark:border-white/5 dark:bg-slate-800/80 dark:hover:border-white/10 sm:flex-row sm:items-center">
-							<div class="flex flex-col">
-								<div class="text-xs font-medium text-slate-500 dark:text-slate-400">
-									{taskItem.client} <span class="mx-1 text-slate-300 dark:text-slate-600">/</span> {taskItem.project}
+		<!-- Queued Tasks Section -->
+		{#if tracker.state.pausedTimers.length > 0}
+			{@const queuedUsers = Array.from(new Set(tracker.state.pausedTimers.map(t => t.user)))}
+			<div class="border-t border-slate-200/50 bg-slate-100/30 dark:border-white/5 dark:bg-black/10">
+				<h3 class="px-6 sm:px-8 pt-5 pb-2 text-sm font-semibold text-slate-800 dark:text-slate-200">Queued Tasks</h3>
+				{#each queuedUsers as qUser}
+					{@const qTasks = tracker.state.pausedTimers.filter(t => t.user === qUser)}
+					<div class="mb-2">
+						<UserTimeChart user={qUser} />
+						<div class="flex flex-col gap-3 px-6 sm:px-8 py-3">
+							{#each qTasks as taskItem (taskItem.id)}
+								<div class="flex flex-col justify-between gap-3 rounded-xl border border-slate-200/50 bg-white p-4 shadow-sm transition-all hover:border-slate-300 dark:border-white/5 dark:bg-slate-800/80 dark:hover:border-white/10 sm:flex-row sm:items-center">
+									<div class="flex flex-col">
+										<div class="text-xs font-medium text-slate-500 dark:text-slate-400">
+											{taskItem.client} <span class="mx-1 text-slate-300 dark:text-slate-600">/</span> {taskItem.project}
+										</div>
+										<div class="mt-0.5 flex items-center gap-2">
+											<span class="text-sm font-semibold text-slate-800 dark:text-slate-100">{taskItem.task}</span>
+											{#if taskItem.status === 'Pending'}
+												<span class="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600 dark:bg-slate-700 dark:text-slate-300">Pending</span>
+											{:else}
+												<span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-500/20 dark:text-amber-400">On Hold</span>
+											{/if}
+										</div>
+									</div>
+									<div class="flex items-center justify-between gap-4 sm:justify-end">
+										<div class="font-timer text-lg font-medium tracking-tight text-indigo-600 dark:text-indigo-400">
+											{tracker.formatDuration(taskItem.elapsedSeconds)}
+										</div>
+										<div class="flex gap-2">
+											<button
+												onclick={() => tracker.resumePausedTimer(taskItem.id)}
+												class="flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-600 transition-colors hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500/20"
+											>
+												<span>▶️</span> {taskItem.status === 'Pending' ? 'Start' : 'Resume'}
+											</button>
+											<button
+												onclick={() => tracker.completePausedTimer(taskItem.id)}
+												class="flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:hover:bg-emerald-500/20"
+												title="Complete & Save"
+											>
+												<span>✅</span> Done
+											</button>
+											<button
+												onclick={() => {
+													if (confirm('Are you sure you want to discard this task?')) {
+														tracker.discardPausedTimer(taskItem.id);
+													}
+												}}
+												class="flex items-center justify-center rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20"
+												title="Discard Session"
+											>
+												🗑️
+											</button>
+										</div>
+									</div>
 								</div>
-								<div class="mt-0.5 flex items-center gap-2">
-									<span class="text-sm font-semibold text-slate-800 dark:text-slate-100">{taskItem.task}</span>
-									{#if taskItem.status === 'Pending'}
-										<span class="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600 dark:bg-slate-700 dark:text-slate-300">Pending</span>
-									{:else}
-										<span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-500/20 dark:text-amber-400">On Hold</span>
-									{/if}
-								</div>
-							</div>
-							<div class="flex items-center justify-between gap-4 sm:justify-end">
-								<div class="font-timer text-lg font-medium tracking-tight text-indigo-600 dark:text-indigo-400">
-									{tracker.formatDuration(taskItem.elapsedSeconds)}
-								</div>
-								<div class="flex gap-2">
-									<button
-										onclick={() => tracker.resumePausedTimer(taskItem.id)}
-										class="flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-600 transition-colors hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500/20"
-									>
-										<span>▶️</span> {taskItem.status === 'Pending' ? 'Start' : 'Resume'}
-									</button>
-									<button
-										onclick={() => tracker.completePausedTimer(taskItem.id)}
-										class="flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:hover:bg-emerald-500/20"
-										title="Complete & Save"
-									>
-										<span>✅</span> Done
-									</button>
-									<button
-										onclick={() => {
-											if (confirm('Are you sure you want to discard this task?')) {
-												tracker.discardPausedTimer(taskItem.id);
-											}
-										}}
-										class="flex items-center justify-center rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20"
-										title="Discard Session"
-									>
-										🗑️
-									</button>
-								</div>
-							</div>
+							{/each}
 						</div>
-					{/each}
-				</div>
+					</div>
+				{/each}
 			</div>
 		{/if}
 	</div>

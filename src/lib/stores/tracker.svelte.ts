@@ -434,26 +434,41 @@ function createTracker() {
 		return report;
 	}
 
+	function getUserTotalTodaySeconds(user: string): number {
+		let total = 0;
+		for (const s of state.sessions) {
+			if (s.user === user && isToday(s.startTime)) total += s.durationSeconds;
+		}
+		if (state.activeTimer && state.activeTimer.user === user && isToday(state.activeTimer.startTime)) {
+			total += state.activeTimer.elapsedSeconds;
+		}
+		for (const pt of state.pausedTimers) {
+			if (pt.user === user && isToday(pt.startTime)) total += pt.elapsedSeconds;
+		}
+		return total;
+	}
+
+	function getUserShiftGoalHours(user: string): number {
+		return state.shiftGoals[user] || 8;
+	}
+
+	function setUserShiftGoal(user: string, hours: number) {
+		if (hours > 0) {
+			state.shiftGoals[user] = hours;
+			persist();
+		}
+	}
+
 	return {
 		get state() { return state; },
 		get totalTodaySeconds() {
-			let total = 0;
-			for (const s of state.sessions) {
-				if (s.user === state.currentUser && isToday(s.startTime)) total += s.durationSeconds;
-			}
-			if (state.activeTimer && state.activeTimer.user === state.currentUser && isToday(state.activeTimer.startTime)) {
-				total += state.activeTimer.elapsedSeconds;
-			}
-			for (const pt of state.pausedTimers) {
-				if (pt.user === state.currentUser && isToday(pt.startTime)) total += pt.elapsedSeconds;
-			}
-			return total;
+			return getUserTotalTodaySeconds(state.currentUser);
 		},
 		get currentShiftGoalSeconds() {
-			return (state.shiftGoals[state.currentUser] || 8) * 3600;
+			return getUserShiftGoalHours(state.currentUser) * 3600;
 		},
 		get currentShiftGoalHours() {
-			return state.shiftGoals[state.currentUser] || 8;
+			return getUserShiftGoalHours(state.currentUser);
 		},
 		init,
 		switchUser,
@@ -476,7 +491,10 @@ function createTracker() {
 		clearAll,
 		destroy,
 		formatDuration,
-		getReport
+		getReport,
+		getUserTotalTodaySeconds,
+		getUserShiftGoalHours,
+		setUserShiftGoal
 	};
 }
 
