@@ -45,6 +45,7 @@
 				<table class="w-full text-left text-sm">
 					<thead class="border-b border-slate-200 bg-slate-50/50 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:border-slate-700/50 dark:bg-black/20 dark:text-slate-400">
 						<tr>
+							<th class="px-6 py-4">User</th>
 							<th class="px-6 py-4">Client / Project</th>
 							<th class="px-6 py-4">Task</th>
 							<th class="px-6 py-4">Status</th>
@@ -56,6 +57,11 @@
 					<tbody class="divide-y divide-slate-100 dark:divide-slate-800/50">
 						{#each tracker.state.sessions as session (session.id)}
 							<tr class="transition-colors hover:bg-slate-50/50 dark:hover:bg-white/5">
+								<td class="px-6 py-4">
+									<div class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+										👤 {session.user}
+									</div>
+								</td>
 								<td class="px-6 py-4">
 									<p class="font-medium text-slate-800 dark:text-slate-200">{session.client}</p>
 									<p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{session.project}</p>
@@ -99,7 +105,7 @@
 						<div class="flex items-start justify-between">
 							<div>
 								<p class="text-xs font-semibold tracking-wide text-indigo-600 dark:text-indigo-400">
-									{session.client} <span class="font-normal text-slate-400">/</span> {session.project}
+									<span class="mr-1 text-slate-500 dark:text-slate-400">👤 {session.user} •</span> {session.client} <span class="font-normal text-slate-400">/</span> {session.project}
 								</p>
 								<h4 class="mt-1 text-base font-medium text-slate-800 dark:text-slate-200">{session.task}</h4>
 							</div>

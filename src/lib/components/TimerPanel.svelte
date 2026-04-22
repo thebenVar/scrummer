@@ -14,11 +14,13 @@
 	let userQueue = $derived(tracker.state.pausedTimers.filter(t => t.user === tracker.state.currentUser));
 
 	let userInput = $state(tracker.state.currentUser);
+	let assigneeInput = $state(tracker.state.currentUser);
 
 	function handleUserChange() {
 		if (userInput.trim()) {
 			tracker.switchUser(userInput);
 			userInput = tracker.state.currentUser; 
+			assigneeInput = tracker.state.currentUser;
 		}
 	}
 
@@ -30,16 +32,26 @@
 	}
 
 	function handleAddPending() {
-		if (!clientInput.trim() || !projectInput.trim() || !taskInput.trim()) return;
-		tracker.addPendingTask(clientInput, projectInput, taskInput);
+		if (!clientInput.trim() || !projectInput.trim() || !taskInput.trim() || !assigneeInput.trim()) return;
+		const targetAssignee = assigneeInput.trim();
+		tracker.addPendingTask(clientInput, projectInput, taskInput, targetAssignee);
 		clientInput = '';
 		projectInput = '';
 		taskInput = '';
+		assigneeInput = tracker.state.currentUser;
 	}
 
 	function handleStart() {
-		if (!clientInput.trim() || !projectInput.trim() || !taskInput.trim()) return;
+		if (!clientInput.trim() || !projectInput.trim() || !taskInput.trim() || !assigneeInput.trim()) return;
+		if (assigneeInput.trim() !== tracker.state.currentUser) {
+			tracker.switchUser(assigneeInput.trim());
+			userInput = tracker.state.currentUser;
+		}
 		tracker.startTimer(clientInput, projectInput, taskInput);
+		clientInput = '';
+		projectInput = '';
+		taskInput = '';
+		assigneeInput = tracker.state.currentUser;
 	}
 
 	function handlePauseResume() {
@@ -220,9 +232,23 @@
 						</div>
 					</div>
 
-					<!-- Task -->
-					<div class="flex flex-col gap-1.5">
-						<label for="task" class="text-sm font-medium text-slate-700 dark:text-slate-300">Task Name</label>
+					<div class="grid grid-cols-1 gap-5 sm:grid-cols-2 text-left">
+						<!-- Assignee -->
+						<div class="flex flex-col gap-1.5 object-left">
+							<label for="assignee" class="text-sm font-medium text-slate-700 dark:text-slate-300">Assign To</label>
+							<input
+								id="assignee"
+								type="text"
+								list="users-list"
+								bind:value={assigneeInput}
+								placeholder="Username"
+								class="rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm outline-none transition-all focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 dark:border-slate-700/50 dark:bg-slate-800/50 dark:text-white dark:focus:bg-slate-800"
+							/>
+						</div>
+
+						<!-- Task -->
+						<div class="flex flex-col gap-1.5">
+							<label for="task" class="text-sm font-medium text-slate-700 dark:text-slate-300">Task Name</label>
 						<input
 							id="task"
 							type="text"
@@ -240,18 +266,19 @@
 							{/each}
 						</datalist>
 					</div>
+					</div>
 
 					<div class="mt-4 flex w-full flex-col gap-3 sm:flex-row">
 						<button
 							onclick={handleStart}
-							disabled={!clientInput.trim() || !projectInput.trim() || !taskInput.trim()}
+							disabled={!clientInput.trim() || !projectInput.trim() || !taskInput.trim() || !assigneeInput.trim()}
 							class="flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 transition-all hover:-translate-y-0.5 hover:bg-indigo-500 hover:shadow-indigo-600/40 active:translate-y-0 disabled:pointer-events-none disabled:opacity-50"
 						>
 							▶️ Start Timer
 						</button>
 						<button
 							onclick={handleAddPending}
-							disabled={!clientInput.trim() || !projectInput.trim() || !taskInput.trim()}
+							disabled={!clientInput.trim() || !projectInput.trim() || !taskInput.trim() || !assigneeInput.trim()}
 							class="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-6 py-3.5 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md hover:ring-1 hover:ring-slate-300 active:translate-y-0 disabled:pointer-events-none disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:ring-slate-600"
 						>
 							⏳ Add to Queue

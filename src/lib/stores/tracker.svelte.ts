@@ -216,18 +216,26 @@ function createTracker() {
 		persist();
 	}
 
-	function addPendingTask(client: string, project: string, task: string) {
-		if (!client.trim() || !project.trim() || !task.trim()) return;
+	function addPendingTask(client: string, project: string, task: string, assignee: string) {
+		if (!client.trim() || !project.trim() || !task.trim() || !assignee.trim()) return;
 
 		addClient(client);
 		addProject(client, project);
 		addTask(client, project, task);
 
+		const assignedUser = assignee.trim();
+		if (!state.users.includes(assignedUser)) {
+			state.users = [...state.users, assignedUser];
+			if (!(assignedUser in state.shiftGoals)) {
+				state.shiftGoals[assignedUser] = 8;
+			}
+		}
+
 		const now = new Date().toISOString();
 
 		const newTask: ActiveTimer = {
 			id: generateId(),
-			user: state.currentUser,
+			user: assignedUser,
 			client: client.trim(),
 			project: project.trim(),
 			task: task.trim(),
@@ -387,33 +395,41 @@ function createTracker() {
 			date.getFullYear() === today.getFullYear();
 	}
 
-	// Report: grouped by client > project > task
-	function getReport(): ReportClient[] {
-		const map = new Map<string, Map<string, Map<string, number>>>();
+	// Report: grouped by user > client > project > task
+	function getReport(): ReportUser[] {
+		const map = new Map<string, Map<string, Map<string, Map<string, number>>>>();
 
 		for (const s of state.sessions) {
-			if (!map.has(s.client)) map.set(s.client, new Map());
-			const pMap = map.get(s.client)!;
+			if (!map.has(s.user)) map.set(s.user, new Map());
+			const clientMap = map.get(s.user)!;
+			if (!clientMap.has(s.client)) clientMap.set(s.client, new Map());
+			const pMap = clientMap.get(s.client)!;
 			if (!pMap.has(s.project)) pMap.set(s.project, new Map());
 			const tMap = pMap.get(s.project)!;
 			tMap.set(s.task, (tMap.get(s.task) ?? 0) + s.durationSeconds);
 		}
 
-		const report: ReportClient[] = [];
-		for (const [client, pMap] of map) {
-			const projects: ReportProject[] = [];
-			let clientTotal = 0;
-			for (const [project, tMap] of pMap) {
-				const tasks: ReportTask[] = [];
-				let projectTotal = 0;
-				for (const [task, secs] of tMap) {
-					tasks.push({ task, seconds: secs });
-					projectTotal += secs;
+		const report: ReportUser[] = [];
+		for (const [user, clientMap] of map) {
+			const clients: ReportClient[] = [];
+			let userTotal = 0;
+			for (const [client, pMap] of clientMap) {
+				const projects: ReportProject[] = [];
+				let clientTotal = 0;
+				for (const [project, tMap] of pMap) {
+					const tasks: ReportTask[] = [];
+					let projectTotal = 0;
+					for (const [task, secs] of tMap) {
+						tasks.push({ task, seconds: secs });
+						projectTotal += secs;
+					}
+					projects.push({ project, seconds: projectTotal, tasks });
+					clientTotal += projectTotal;
 				}
-				projects.push({ project, seconds: projectTotal, tasks });
-				clientTotal += projectTotal;
+				clients.push({ client, seconds: clientTotal, projects });
+				userTotal += clientTotal;
 			}
-			report.push({ client, seconds: clientTotal, projects });
+			report.push({ user, seconds: userTotal, clients });
 		}
 		return report;
 	}
@@ -481,4 +497,9 @@ export interface ReportClient {
 	client: string;
 	seconds: number;
 	projects: ReportProject[];
+}
+export interface ReportUser {
+	user: string;
+	seconds: number;
+	clients: ReportClient[];
 }
