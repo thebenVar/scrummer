@@ -28,7 +28,7 @@ export interface ActiveTimer {
 
 export interface TrackerState {
 	sessions: WorkSession[];
-	activeTimer: ActiveTimer | null;
+	activeTimers: ActiveTimer[];
 	pausedTimers: ActiveTimer[];
 	clients: string[];
 	projects: Record<string, string[]>; // client -> projects[]
@@ -52,10 +52,20 @@ function loadState(): TrackerState {
 		const raw = localStorage.getItem(STORAGE_KEY);
 		if (!raw) return defaultState();
 		const parsed: TrackerState = JSON.parse(raw);
-		// Restore paused timer correctly — never auto-resume
-		if (parsed.activeTimer) {
-			parsed.activeTimer.running = false;
+		
+		// Migration: convert single activeTimer to array
+		if (parsed.activeTimers === undefined) {
+			parsed.activeTimers = [];
+			if ((parsed as any).activeTimer) {
+				const legacyTimer = (parsed as any).activeTimer;
+				// Maintain running state if it was running
+				parsed.activeTimers.push(legacyTimer);
+				delete (parsed as any).activeTimer;
+			}
 		}
+
+		// (Removed auto-stop logic to allow persistence across reloads)
+
 		if (!parsed.pausedTimers) {
 			parsed.pausedTimers = [];
 		}
@@ -67,7 +77,7 @@ function loadState(): TrackerState {
 		if (!parsed.shiftGoals) parsed.shiftGoals = { [parsed.currentUser]: 8 };
 
 		// Backward compatibility for users
-		if (parsed.activeTimer && !parsed.activeTimer.user) parsed.activeTimer.user = parsed.currentUser;
+		parsed.activeTimers.forEach(t => { if (!t.user) t.user = parsed.currentUser; });
 		parsed.sessions.forEach(s => { if (!s.user) s.user = parsed.currentUser; });
 		parsed.pausedTimers.forEach(t => { if (!t.user) t.user = parsed.currentUser; });
 
@@ -80,7 +90,7 @@ function loadState(): TrackerState {
 function defaultState(): TrackerState {
 	return {
 		sessions: [],
-		activeTimer: null,
+		activeTimers: [],
 		pausedTimers: [],
 		clients: [],
 		projects: {},
@@ -105,6 +115,10 @@ function createTracker() {
 	// Initialise from localStorage (client-side only)
 	function init() {
 		state = loadState();
+		// Automatically resume the interval if there are running timers
+		if (state.activeTimers.some(t => t.running)) {
+			startInterval();
+		}
 	}
 
 	function persist() {
@@ -123,12 +137,6 @@ function createTracker() {
 			state.shiftGoals[trimmed] = 8;
 		}
 		
-		if (state.activeTimer) {
-			if (state.activeTimer.running) stopInterval();
-			const toPause = { ...state.activeTimer, status: 'On Hold' as TaskStatus, running: false };
-			state.pausedTimers = [toPause, ...state.pausedTimers];
-			state.activeTimer = null;
-		}
 		state.currentUser = trimmed;
 		persist();
 	}
@@ -182,27 +190,35 @@ function createTracker() {
 
 	// ── Timer controls ──
 
-	function startTimer(client: string, project: string, task: string) {
-		if (!client.trim() || !project.trim() || !task.trim()) return;
+	function startTimer(client: string, project: string, task: string, assignee: string) {
+		if (!client.trim() || !project.trim() || !task.trim() || !assignee.trim()) return;
 
 		// Ensure client/project exist in lists
 		addClient(client);
 		addProject(client, project);
 		addTask(client, project, task);
 
-		if (state.activeTimer?.running) stopInterval();
+		const assignedUser = assignee.trim();
+		if (!state.users.includes(assignedUser)) {
+			state.users = [...state.users, assignedUser];
+			if (!(assignedUser in state.shiftGoals)) {
+				state.shiftGoals[assignedUser] = 8;
+			}
+		}
 
-		// If there is an active timer, move it to paused timers to avoid overwriting
-		if (state.activeTimer) {
-			const toPause = { ...state.activeTimer, status: 'On Hold' as TaskStatus, running: false };
+		// If this user already has an active timer, move it to paused timers to avoid overwriting
+		const userActiveIndex = state.activeTimers.findIndex(t => t.user === assignedUser);
+		if (userActiveIndex !== -1) {
+			const toPause = { ...state.activeTimers[userActiveIndex], status: 'On Hold' as TaskStatus, running: false };
 			state.pausedTimers = [toPause, ...state.pausedTimers];
+			state.activeTimers.splice(userActiveIndex, 1);
 		}
 
 		const now = new Date().toISOString();
 
-		state.activeTimer = {
+		const newTimer: ActiveTimer = {
 			id: generateId(),
-			user: state.currentUser,
+			user: assignedUser,
 			client: client.trim(),
 			project: project.trim(),
 			task: task.trim(),
@@ -212,6 +228,7 @@ function createTracker() {
 			running: true
 		};
 
+		state.activeTimers = [...state.activeTimers, newTimer];
 		startInterval();
 		persist();
 	}
@@ -249,46 +266,49 @@ function createTracker() {
 		persist();
 	}
 
-	function pauseTimer() {
-		if (!state.activeTimer || !state.activeTimer.running) return;
-		stopInterval();
-		state.activeTimer = { ...state.activeTimer, status: 'On Hold', running: false };
+	function pauseTimer(id: string) {
+		const idx = state.activeTimers.findIndex(t => t.id === id);
+		if (idx === -1 || !state.activeTimers[idx].running) return;
+		state.activeTimers[idx] = { ...state.activeTimers[idx], status: 'On Hold', running: false };
 		persist();
 	}
 
-	function resumeTimer() {
-		if (!state.activeTimer || state.activeTimer.running) return;
-		state.activeTimer = { ...state.activeTimer, status: 'In Progress', running: true };
+	function resumeTimer(id: string) {
+		const idx = state.activeTimers.findIndex(t => t.id === id);
+		if (idx === -1 || state.activeTimers[idx].running) return;
+		state.activeTimers[idx] = { ...state.activeTimers[idx], status: 'In Progress', running: true };
 		startInterval();
 		persist();
 	}
 
-	function completeTimer() {
-		if (!state.activeTimer) return;
-		stopInterval();
+	function completeTimer(id: string) {
+		const idx = state.activeTimers.findIndex(t => t.id === id);
+		if (idx === -1) return;
+
+		const target = state.activeTimers[idx];
+		state.activeTimers.splice(idx, 1);
 
 		const endTime = new Date().toISOString();
 		const session: WorkSession = {
 			id: generateId(),
-			user: state.activeTimer.user,
-			client: state.activeTimer.client,
-			project: state.activeTimer.project,
-			task: state.activeTimer.task,
+			user: target.user,
+			client: target.client,
+			project: target.project,
+			task: target.task,
 			status: 'Completed',
-			startTime: state.activeTimer.startTime,
+			startTime: target.startTime,
 			endTime,
-			durationSeconds: state.activeTimer.elapsedSeconds
+			durationSeconds: target.elapsedSeconds
 		};
 
 		state.sessions = [session, ...state.sessions];
-		state.activeTimer = null;
 		persist();
 	}
 
-	function discardTimer() {
-		if (!state.activeTimer) return;
-		stopInterval();
-		state.activeTimer = null;
+	function discardTimer(id: string) {
+		const idx = state.activeTimers.findIndex(t => t.id === id);
+		if (idx === -1) return;
+		state.activeTimers.splice(idx, 1);
 		persist();
 	}
 
@@ -300,14 +320,15 @@ function createTracker() {
 		const newPausedTimers = [...state.pausedTimers];
 		newPausedTimers.splice(targetIdx, 1);
 		
-		if (state.activeTimer) {
-			if (state.activeTimer.running) stopInterval();
-			const toPause = { ...state.activeTimer, status: 'On Hold' as TaskStatus, running: false };
+		const userActiveIndex = state.activeTimers.findIndex(t => t.user === target.user);
+		if (userActiveIndex !== -1) {
+			const toPause = { ...state.activeTimers[userActiveIndex], status: 'On Hold' as TaskStatus, running: false };
 			newPausedTimers.unshift(toPause);
+			state.activeTimers.splice(userActiveIndex, 1);
 		}
 
 		state.pausedTimers = newPausedTimers;
-		state.activeTimer = { ...target, status: 'In Progress', running: true };
+		state.activeTimers = [...state.activeTimers, { ...target, status: 'In Progress', running: true }];
 		startInterval();
 		persist();
 	}
@@ -356,13 +377,18 @@ function createTracker() {
 	function startInterval() {
 		if (intervalId !== null) clearInterval(intervalId);
 		intervalId = setInterval(() => {
-			if (state.activeTimer?.running) {
-				state.activeTimer = {
-					...state.activeTimer,
-					elapsedSeconds: state.activeTimer.elapsedSeconds + 1
-				};
-				persist();
-			}
+			let updated = false;
+			state.activeTimers = state.activeTimers.map(timer => {
+				if (timer.running) {
+					updated = true;
+					return {
+						...timer,
+						elapsedSeconds: timer.elapsedSeconds + 1
+					};
+				}
+				return timer;
+			});
+			if (updated) persist();
 		}, 1000);
 	}
 
@@ -439,8 +465,8 @@ function createTracker() {
 		for (const s of state.sessions) {
 			if (s.user === user && isToday(s.startTime)) total += s.durationSeconds;
 		}
-		if (state.activeTimer && state.activeTimer.user === user && isToday(state.activeTimer.startTime)) {
-			total += state.activeTimer.elapsedSeconds;
+		for (const at of state.activeTimers) {
+			if (at.user === user && isToday(at.startTime)) total += at.elapsedSeconds;
 		}
 		for (const pt of state.pausedTimers) {
 			if (pt.user === user && isToday(pt.startTime)) total += pt.elapsedSeconds;

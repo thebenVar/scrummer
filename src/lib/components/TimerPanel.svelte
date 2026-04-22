@@ -28,10 +28,7 @@
 
 	function handleStart() {
 		if (!clientInput.trim() || !projectInput.trim() || !taskInput.trim() || !assigneeInput.trim()) return;
-		if (assigneeInput.trim() !== tracker.state.currentUser) {
-			tracker.switchUser(assigneeInput.trim());
-		}
-		tracker.startTimer(clientInput, projectInput, taskInput);
+		tracker.startTimer(clientInput, projectInput, taskInput, assigneeInput.trim());
 		clientInput = '';
 		projectInput = '';
 		taskInput = '';
@@ -39,24 +36,24 @@
 		showNewTaskForm = false;
 	}
 
-	function handlePauseResume() {
-		if (tracker.state.activeTimer?.running) {
-			tracker.pauseTimer();
+	function handlePauseResume(timer: any) {
+		if (timer.running) {
+			tracker.pauseTimer(timer.id);
 		} else {
-			tracker.resumeTimer();
+			tracker.resumeTimer(timer.id);
 		}
 	}
 
-	function handleComplete() {
-		tracker.completeTimer();
+	function handleComplete(id: string) {
+		tracker.completeTimer(id);
 		clientInput = '';
 		projectInput = '';
 		taskInput = '';
 	}
 
-	function handleDiscard() {
+	function handleDiscard(id: string) {
 		if (confirm('Are you sure you want to discard this session?')) {
-			tracker.discardTimer();
+			tracker.discardTimer(id);
 			clientInput = '';
 			projectInput = '';
 			taskInput = '';
@@ -88,71 +85,73 @@
 			</div>
 		</div>
 
-		{#if tracker.state.activeTimer}
-			<UserTimeChart user={tracker.state.activeTimer.user} />
-		{/if}
+		{#if tracker.state.activeTimers.length > 0}
+			{#each tracker.state.activeTimers as activeTimer (activeTimer.id)}
+				<div class="border-b border-slate-200/50 dark:border-white/10 last:border-0">
+					<UserTimeChart user={activeTimer.user} />
+					<div class="p-6 sm:p-8">
+						<div class="flex flex-col items-center">
+							<StatusBadge status={activeTimer.status} />
 
-		<div class="p-6 sm:p-8">
-			{#if tracker.state.activeTimer}
-				<!-- Active Timer View -->
-				<div class="flex flex-col items-center">
-					<StatusBadge status={tracker.state.activeTimer.status} />
+							<div class="mt-8 text-center">
+								<p class="text-sm font-medium text-slate-500 dark:text-slate-400">
+									{activeTimer.client} <span class="mx-1 text-slate-300 dark:text-slate-600">/</span> {activeTimer.project}
+								</p>
+								<h3 class="mt-1 text-2xl font-bold text-slate-800 dark:text-slate-100">
+									{activeTimer.task}
+								</h3>
+							</div>
 
-					<div class="mt-8 text-center">
-						<p class="text-sm font-medium text-slate-500 dark:text-slate-400">
-							{tracker.state.activeTimer.client} <span class="mx-1 text-slate-300 dark:text-slate-600">/</span> {tracker.state.activeTimer.project}
-						</p>
-						<h3 class="mt-1 text-2xl font-bold text-slate-800 dark:text-slate-100">
-							{tracker.state.activeTimer.task}
-						</h3>
+							<div class="font-timer mt-10 text-6xl md:text-7xl font-light tracking-tight text-indigo-600 dark:text-indigo-400 {activeTimer.running ? 'animate-pulse-ring rounded-full' : ''}">
+								{tracker.formatDuration(activeTimer.elapsedSeconds)}
+							</div>
+
+							<div class="mt-12 flex w-full flex-col gap-3 sm:flex-row sm:justify-center">
+								<button
+									onclick={() => handlePauseResume(activeTimer)}
+									class="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-6 py-3 font-medium text-slate-700 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md hover:ring-1 hover:ring-slate-300 active:translate-y-0 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:ring-slate-600"
+								>
+									{#if activeTimer.running}
+										⏸ Pause
+									{:else}
+										▶️ Resume
+									{/if}
+								</button>
+								<button
+									onclick={() => handleComplete(activeTimer.id)}
+									class="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-3 font-medium text-white shadow-md shadow-emerald-500/25 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-emerald-500/40 active:translate-y-0"
+								>
+									✅ Complete & Save
+								</button>
+							</div>
+
+							<button
+								onclick={() => handleDiscard(activeTimer.id)}
+								class="mt-6 text-sm font-medium text-slate-400 underline decoration-slate-400/30 underline-offset-4 transition-colors hover:text-red-500 hover:decoration-red-500/50 dark:text-slate-500"
+							>
+								Discard session
+							</button>
+						</div>
 					</div>
+				</div>
+			{/each}
 
-					<div class="font-timer mt-10 text-6xl md:text-7xl font-light tracking-tight text-indigo-600 dark:text-indigo-400 {tracker.state.activeTimer.running ? 'animate-pulse-ring rounded-full' : ''}">
-						{tracker.formatDuration(tracker.state.activeTimer.elapsedSeconds)}
-					</div>
-
-					<div class="mt-12 flex w-full flex-col gap-3 sm:flex-row sm:justify-center">
-						<button
-							onclick={handlePauseResume}
-							class="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-6 py-3 font-medium text-slate-700 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md hover:ring-1 hover:ring-slate-300 active:translate-y-0 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:ring-slate-600"
-						>
-							{#if tracker.state.activeTimer.running}
-								⏸ Pause
-							{:else}
-								▶️ Resume
-							{/if}
-						</button>
-						<button
-							onclick={handleComplete}
-							class="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-3 font-medium text-white shadow-md shadow-emerald-500/25 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-emerald-500/40 active:translate-y-0"
-						>
-							✅ Complete & Save
-						</button>
-					</div>
-
+			{#if !showNewTaskForm}
+				<div class="flex justify-center border-t border-slate-200/50 py-6 dark:border-white/10">
 					<button
-						onclick={handleDiscard}
-						class="mt-6 text-sm font-medium text-slate-400 underline decoration-slate-400/30 underline-offset-4 transition-colors hover:text-red-500 hover:decoration-red-500/50 dark:text-slate-500"
+						onclick={() => (showNewTaskForm = true)}
+						class="flex items-center gap-2 rounded-xl bg-slate-100 px-6 py-3 text-sm font-semibold text-slate-600 transition-all hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
 					>
-						Discard session
+						➕ Add Another Task
 					</button>
 				</div>
-
-				{#if !showNewTaskForm}
-					<div class="mt-8 flex justify-center border-t border-slate-200/50 pt-6 dark:border-white/10">
-						<button
-							onclick={() => (showNewTaskForm = true)}
-							class="flex items-center gap-2 rounded-xl bg-slate-100 px-6 py-3 text-sm font-semibold text-slate-600 transition-all hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-						>
-							➕ Add Another Task
-						</button>
-					</div>
-				{/if}
 			{/if}
+		{/if}
 
-			{#if !tracker.state.activeTimer || showNewTaskForm}
-				<div class={tracker.state.activeTimer ? "animate-fade-up mt-8 border-t border-slate-200/50 pt-8 dark:border-white/10" : ""}>
-					{#if tracker.state.activeTimer}
+		<div class="p-6 sm:p-8 {tracker.state.activeTimers.length > 0 ? 'pt-0 sm:pt-0' : ''}">
+			{#if tracker.state.activeTimers.length === 0 || showNewTaskForm}
+				<div class={tracker.state.activeTimers.length > 0 ? "animate-fade-up border-t border-slate-200/50 pt-8 dark:border-white/10" : ""}>
+					{#if tracker.state.activeTimers.length > 0}
 						<div class="mb-5 flex items-center justify-between px-2">
 							<h3 class="font-semibold text-slate-800 dark:text-slate-200">Start or Queue a Task</h3>
 							<button
