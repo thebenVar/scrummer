@@ -3,7 +3,7 @@
  * Persists to localStorage and listens to OS media query changes.
  */
 
-type Theme = 'light' | 'dark' | 'system';
+export type Theme = 'light' | 'dark' | 'system';
 
 const STORAGE_KEY = 'wtt-theme';
 
@@ -20,9 +20,11 @@ class ThemeStore {
 		return this.preference === 'dark';
 	}
 
-	/** Must be called once, client-side (e.g. in a layout $effect). */
+	private _initialized = false;
+
 	init() {
-		if (typeof window === 'undefined') return;
+		if (typeof window === 'undefined' || this._initialized) return;
+		this._initialized = true;
 
 		// Restore saved preference
 		const saved = localStorage.getItem(STORAGE_KEY) as Theme | null;

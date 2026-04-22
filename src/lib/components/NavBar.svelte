@@ -54,7 +54,7 @@
 
 <!-- Mobile / Tablet top bar -->
 <header
-	class="flex items-center justify-between border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/80 lg:hidden"
+	class="relative z-50 flex items-center justify-between border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/80 lg:hidden"
 >
 	<div class="flex items-center gap-2">
 		<div class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 shadow shadow-indigo-900/40">

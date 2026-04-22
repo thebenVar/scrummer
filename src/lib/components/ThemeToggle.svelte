@@ -1,30 +1,31 @@
 <script lang="ts">
-	type Theme = 'light' | 'dark' | 'system';
+	import { themeStore, type Theme } from '$lib/stores/theme.svelte';
 
 	let { placement = 'top' }: { placement?: 'top' | 'bottom' } = $props();
 
-	let current = $state<Theme>('system');
 	let isOpen = $state(false);
+	let containerNode: HTMLElement;
 
 	function apply(theme: Theme) {
-		current = theme;
+		themeStore.set(theme);
 		isOpen = false;
-		localStorage.setItem('theme', theme);
-		const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-		const useDark = theme === 'dark' || (theme === 'system' && prefersDark);
-		document.documentElement.classList.toggle('dark', useDark);
 	}
 
 	$effect(() => {
-		const saved = (localStorage.getItem('theme') as Theme) || 'system';
-		apply(saved);
-
-		// React to OS changes when in system mode
-		const mq = window.matchMedia('(prefers-color-scheme: dark)');
-		const handler = () => { if (current === 'system') apply('system'); };
-		mq.addEventListener('change', handler);
-		return () => mq.removeEventListener('change', handler);
+		themeStore.init();
 	});
+
+	$effect(() => {
+		if (typeof document !== 'undefined') {
+			document.documentElement.classList.toggle('dark', themeStore.isDark);
+		}
+	});
+
+	function handleWindowClick(e: MouseEvent) {
+		if (isOpen && containerNode && !containerNode.contains(e.target as Node)) {
+			isOpen = false;
+		}
+	}
 
 	const options: { value: Theme; icon: string; label: string }[] = [
 		{ value: 'light', icon: '☀️', label: 'Light' },
@@ -32,10 +33,12 @@
 		{ value: 'system',icon: '💻', label: 'System'}
 	];
 
-	let currentOption = $derived(options.find(o => o.value === current) || options[2]);
+	let currentOption = $derived(options.find(o => o.value === themeStore.preference) || options[2]);
 </script>
 
-<div class="relative w-full" onmouseleave={() => isOpen = false} role="presentation">
+<svelte:window onclick={handleWindowClick} />
+
+<div bind:this={containerNode} class="relative w-full" role="presentation">
 	<button
 		onclick={() => isOpen = !isOpen}
 		class="flex w-full items-center justify-between gap-2.5 rounded-xl border border-slate-200/60 bg-slate-100/50 px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm backdrop-blur transition-all hover:bg-white hover:shadow-md dark:border-white/10 dark:bg-slate-800/60 dark:text-slate-200 dark:hover:bg-slate-800"
@@ -60,13 +63,13 @@
 				<button
 					onclick={() => apply(opt.value)}
 					class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all
-						{current === opt.value
+						{themeStore.preference === opt.value
 							? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400'
 							: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-200'}"
 				>
 					<span class="text-base">{opt.icon}</span>
 					{opt.label}
-					{#if current === opt.value}
+					{#if themeStore.preference === opt.value}
 						<span class="ml-auto text-xs">✓</span>
 					{/if}
 				</button>
