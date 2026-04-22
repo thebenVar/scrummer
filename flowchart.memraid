@@ -1,0 +1,35 @@
+flowchart TD
+    A([🚀 App Launch]) --> B[Load from localStorage]
+    B --> C{First Visit?}
+    C -- Yes --> D[Show empty state\nwith onboarding hint]
+    C -- No --> E[Restore active sessions\n& previous logs]
+
+    D & E --> F[Dashboard / Timer View]
+
+    F --> G[Select or type Client Name]
+    G --> H[Select or type Project Name]
+    H --> I[Type Task Name]
+    I --> J{All fields filled?}
+    J -- No --> I
+    J -- Yes --> K[Click ▶ Start]
+    K --> L[Task Status → In Progress\nTimer begins HH:MM:SS\nPulse ring animates]
+
+    L --> M{User action?}
+    M -- Pause --> N[Click ⏸ Pause\nStatus → On Hold\nTimer freezes]
+    N --> O{Resume or Complete?}
+    O -- Resume --> K
+    O -- Complete --> P
+
+    M -- Complete --> P[Click ✅ Complete & Save\nStatus → Completed\nSession logged]
+    P --> Q[Session written to\nTime Log Dashboard\nfade-in animation]
+
+    Q --> R{User navigates to?}
+    R -- Logs Tab --> S[View Time Log Dashboard\nClient / Project / Task\nStart, End, Duration]
+    R -- Reports Tab --> T[View Reports & Analytics\nGrouped by Client → Project → Task\nCollapsible accordion rows]
+    R -- Timer Tab --> F
+
+    S & T --> U{Theme Toggle?}
+    U -- Light --> V[Apply light palette]
+    U -- Dark --> W[Apply dark palette]
+    U -- System --> X[Match OS preference\nvia prefers-color-scheme]
+    V & W & X --> F
