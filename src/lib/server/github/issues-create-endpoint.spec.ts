@@ -95,6 +95,50 @@ describe('POST /api/github/issues/create', () => {
 		expect(response.status).toBe(400);
 	});
 
+	it('returns 400 for invalid mode', async () => {
+		const { POST } = await import('../../../routes/api/github/issues/create/+server');
+		const request = new Request('http://localhost/api/github/issues/create', {
+			method: 'POST',
+			body: JSON.stringify({
+				owner: 'acme',
+				repo: 'repo',
+				title: 'Task',
+				mode: 'invalid-mode'
+			})
+		});
+
+		const response = await POST({ request });
+		expect(response.status).toBe(400);
+	});
+
+	it('returns 400 for whitespace-only required fields', async () => {
+		const { POST } = await import('../../../routes/api/github/issues/create/+server');
+		const request = new Request('http://localhost/api/github/issues/create', {
+			method: 'POST',
+			body: JSON.stringify({
+				owner: '   ',
+				repo: 'repo',
+				title: 'Task',
+				mode: 'issue-only'
+			})
+		});
+
+		const response = await POST({ request });
+		expect(response.status).toBe(400);
+	});
+
+	it('returns 400 for invalid JSON body', async () => {
+		const { POST } = await import('../../../routes/api/github/issues/create/+server');
+		const request = new Request('http://localhost/api/github/issues/create', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: '{invalid-json'
+		});
+
+		const response = await POST({ request });
+		expect(response.status).toBe(400);
+	});
+
 	it('returns 400 when mode is issue-and-project and projectId is missing', async () => {
 		const { POST } = await import('../../../routes/api/github/issues/create/+server');
 		const request = new Request('http://localhost/api/github/issues/create', {

@@ -11,24 +11,39 @@ interface CreatePayload {
 }
 
 export async function POST(event: { request: Request }) {
-	const payload = (await event.request.json()) as CreatePayload;
+	let payload: CreatePayload;
+	try {
+		payload = (await event.request.json()) as CreatePayload;
+	} catch {
+		return json({ error: 'Invalid JSON body' }, { status: 400 });
+	}
 
-	if (!payload.owner || !payload.repo || !payload.title || !payload.mode) {
+	const owner = payload.owner?.trim() ?? '';
+	const repo = payload.repo?.trim() ?? '';
+	const title = payload.title?.trim() ?? '';
+	const mode = payload.mode;
+	const projectId = payload.projectId?.trim();
+
+	if (!owner || !repo || !title || !mode) {
 		return json({ error: 'owner, repo, title, and mode are required' }, { status: 400 });
 	}
 
-	if (payload.mode === 'issue-and-project' && !payload.projectId?.trim()) {
+	if (mode !== 'issue-only' && mode !== 'issue-and-project') {
+		return json({ error: 'mode must be issue-only or issue-and-project' }, { status: 400 });
+	}
+
+	if (mode === 'issue-and-project' && !projectId) {
 		return json({ error: 'projectId is required when mode is issue-and-project' }, { status: 400 });
 	}
 
 	try {
 		const result = await createGithubIssue({
-			owner: payload.owner,
-			repo: payload.repo,
-			title: payload.title,
+			owner,
+			repo,
+			title,
 			body: payload.body,
-			mode: payload.mode,
-			projectId: payload.projectId
+			mode,
+			projectId
 		});
 		return json(result, { status: 201 });
 	} catch (error: any) {

@@ -1,6 +1,22 @@
 import { expect, test } from '@playwright/test';
 
 test('user can open github tab and start timer from issue row', async ({ page }) => {
+	await page.route('**/api/github/options/owners', async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify({ owners: ['acme'] })
+		});
+	});
+
+	await page.route('**/api/github/options/repos?owner=*', async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify({ repos: ['repo'] })
+		});
+	});
+
 	await page.route('**/api/github/issues?**', async (route) => {
 		await route.fulfill({
 			status: 200,
@@ -26,8 +42,8 @@ test('user can open github tab and start timer from issue row', async ({ page })
 	await page.goto('/');
 	await page.getByRole('button', { name: /github/i }).click();
 
-	await page.getByPlaceholder('Owner').fill('acme');
-	await page.getByPlaceholder('Repo').fill('repo');
+	await page.getByLabel('Owner').fill('acme');
+	await page.getByLabel('Repo').fill('repo');
 	await page.getByRole('button', { name: /load issues/i }).click();
 
 	await expect(page.getByText('#55 Track integration')).toBeVisible();
@@ -39,6 +55,22 @@ test('user can open github tab and start timer from issue row', async ({ page })
 });
 
 test('user can create issue with mode selection', async ({ page }) => {
+	await page.route('**/api/github/options/owners', async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify({ owners: ['acme'] })
+		});
+	});
+
+	await page.route('**/api/github/options/repos?owner=*', async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify({ repos: ['repo'] })
+		});
+	});
+
 	let createCalled = false;
 	await page.route('**/api/github/issues/create', async (route) => {
 		createCalled = true;

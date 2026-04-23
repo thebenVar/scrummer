@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import type { GithubIssue } from '$lib/github/types';
 	import { tracker } from '$lib/stores/tracker.svelte';
 	import { githubStore } from '$lib/stores/github.svelte';
@@ -10,6 +11,11 @@
 	let repo = $state('');
 	let search = $state('');
 	let showCreateModal = $state(false);
+	let owners = $state<string[]>([]);
+	let repos = $state<string[]>([]);
+	let loadingOptions = $state(false);
+	let errorSource = $state<'owners' | 'repos' | 'issues' | null>(null);
+	let repoRequestSeq = 0;
 
 	const displayedIssues = $derived(issues.length > 0 ? issues : githubStore.filteredIssues);
 
@@ -28,8 +34,72 @@
 		tracker.startTimerFromGithubIssue(issue, tracker.state.currentUser);
 	}
 
+	async function loadOwners() {
+		loadingOptions = true;
+		errorSource = null;
+		try {
+			const response = await fetch('/api/github/options/owners');
+			const payload = await response.json();
+			if (!response.ok) throw new Error(payload.error ?? 'Failed to load owners');
+			owners = payload.owners ?? [];
+			if (!owner && owners.length > 0) {
+				owner = owners[0];
+			}
+		} catch (e: any) {
+			errorSource = 'owners';
+			githubStore.setError(e?.message ?? 'Failed to load owner options');
+		} finally {
+			loadingOptions = false;
+		}
+	}
+
+	async function loadRepos(nextOwner = owner) {
+		const requestId = ++repoRequestSeq;
+		if (!nextOwner) {
+			repos = [];
+			repo = '';
+			return;
+		}
+		try {
+			const response = await fetch(`/api/github/options/repos?owner=${encodeURIComponent(nextOwner)}`);
+			const payload = await response.json();
+			if (!response.ok) throw new Error(payload.error ?? 'Failed to load repos');
+			if (requestId !== repoRequestSeq) return;
+			repos = payload.repos ?? [];
+			if (!repos.includes(repo)) {
+				repo = repos[0] ?? '';
+			}
+			errorSource = null;
+		} catch (e: any) {
+			if (requestId !== repoRequestSeq) return;
+			errorSource = 'repos';
+			githubStore.setError(e?.message ?? 'Failed to load repo options');
+		}
+	}
+
+	async function retryCurrentError() {
+		if (errorSource === 'owners') {
+			await loadOwners();
+			return;
+		}
+		if (errorSource === 'repos') {
+			await loadRepos(owner);
+			return;
+		}
+		await loadIssues();
+	}
+
+	$effect(() => {
+		void loadRepos(owner);
+	});
+
+	onMount(() => {
+		void loadOwners();
+	});
+
 	async function loadIssues() {
 		if (!owner.trim() || !repo.trim()) return;
+		errorSource = null;
 		githubStore.startLoading();
 		try {
 			const response = await fetch(`/api/github/issues?owner=${encodeURIComponent(owner.trim())}&repo=${encodeURIComponent(repo.trim())}`);
@@ -37,6 +107,7 @@
 			if (!response.ok) throw new Error(payload.error ?? 'Failed to load issues');
 			githubStore.setIssues(payload.issues ?? []);
 		} catch (e: any) {
+			errorSource = 'issues';
 			githubStore.setError(e?.message ?? 'Failed to load issues');
 		} finally {
 			githubStore.endLoading();
@@ -53,10 +124,36 @@
 	</div>
 
 	<div class="mb-4 grid grid-cols-1 gap-3 rounded-xl border bg-white p-4 dark:bg-slate-900 sm:grid-cols-4">
-		<input class="rounded border px-3 py-2 text-sm" placeholder="Owner" bind:value={owner} />
-		<input class="rounded border px-3 py-2 text-sm" placeholder="Repo" bind:value={repo} />
+		<input
+			aria-label="Owner"
+			bind:value={owner}
+			list="owner-options"
+			class="rounded border px-3 py-2 text-sm"
+			placeholder={loadingOptions ? 'Loading owners...' : 'Select or type owner'}
+		/>
+		<datalist id="owner-options">
+			{#each owners as ownerOption}
+				<option value={ownerOption}></option>
+			{/each}
+		</datalist>
+		<input
+			aria-label="Repo"
+			bind:value={repo}
+			list="repo-options"
+			class="rounded border px-3 py-2 text-sm"
+			placeholder={owner ? 'Select or type repo' : 'Select or type owner first'}
+		/>
+		<datalist id="repo-options">
+			{#each repos as repoOption}
+				<option value={repoOption}></option>
+			{/each}
+		</datalist>
 		<input class="rounded border px-3 py-2 text-sm sm:col-span-1" placeholder="Search issues" bind:value={search} />
-		<button class="rounded bg-slate-900 px-3 py-2 text-sm text-white dark:bg-slate-100 dark:text-slate-900" onclick={loadIssues}>
+		<button
+			class="rounded bg-slate-900 px-3 py-2 text-sm text-white dark:bg-slate-100 dark:text-slate-900"
+			onclick={loadIssues}
+			disabled={!owner.trim() || !repo.trim()}
+		>
 			{githubStore.loading ? 'Loading...' : 'Load Issues'}
 		</button>
 	</div>
@@ -64,7 +161,7 @@
 	{#if githubStore.error}
 		<div class="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300">
 			{githubStore.error}
-			<button class="ml-3 underline" onclick={loadIssues}>Retry</button>
+			<button class="ml-3 underline" onclick={retryCurrentError}>Retry</button>
 		</div>
 	{/if}
 
