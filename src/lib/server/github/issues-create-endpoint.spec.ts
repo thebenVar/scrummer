@@ -20,7 +20,7 @@ describe('POST /api/github/issues/create', () => {
 			projectLinked: false
 		});
 
-		const { POST } = await import('./+server');
+		const { POST } = await import('../../../routes/api/github/issues/create/+server');
 		const request = new Request('http://localhost/api/github/issues/create', {
 			method: 'POST',
 			body: JSON.stringify({ owner: 'acme', repo: 'repo', title: 'New task', mode: 'issue-only' })
@@ -39,7 +39,7 @@ describe('POST /api/github/issues/create', () => {
 			projectLinked: true
 		});
 
-		const { POST } = await import('./+server');
+		const { POST } = await import('../../../routes/api/github/issues/create/+server');
 		const request = new Request('http://localhost/api/github/issues/create', {
 			method: 'POST',
 			body: JSON.stringify({
@@ -56,7 +56,7 @@ describe('POST /api/github/issues/create', () => {
 	});
 
 	it('returns 400 when required fields are missing', async () => {
-		const { POST } = await import('./+server');
+		const { POST } = await import('../../../routes/api/github/issues/create/+server');
 		const request = new Request('http://localhost/api/github/issues/create', {
 			method: 'POST',
 			body: JSON.stringify({ owner: 'acme', title: 'Missing repo and mode' })

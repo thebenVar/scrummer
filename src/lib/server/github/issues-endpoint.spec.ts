@@ -26,7 +26,7 @@ describe('GET /api/github/issues', () => {
 			}
 		]);
 
-		const { GET } = await import('./+server');
+		const { GET } = await import('../../../routes/api/github/issues/+server');
 		const response = await GET({
 			url: new URL('http://localhost/api/github/issues?owner=acme&repo=repo')
 		});
@@ -39,7 +39,7 @@ describe('GET /api/github/issues', () => {
 	});
 
 	it('returns 400 when owner/repo are missing', async () => {
-		const { GET } = await import('./+server');
+		const { GET } = await import('../../../routes/api/github/issues/+server');
 		const response = await GET({
 			url: new URL('http://localhost/api/github/issues')
 		});
@@ -50,7 +50,7 @@ describe('GET /api/github/issues', () => {
 	it('returns 502 on upstream failure', async () => {
 		runGhJsonMock.mockRejectedValue(new Error('gh unavailable'));
 
-		const { GET } = await import('./+server');
+		const { GET } = await import('../../../routes/api/github/issues/+server');
 		const response = await GET({
 			url: new URL('http://localhost/api/github/issues?owner=acme&repo=repo')
 		});
