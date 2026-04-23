@@ -13,15 +13,19 @@ describe('GithubIssuesPanel', () => {
 					state: 'OPEN',
 					labels: ['feature'],
 					assignees: ['tom'],
-					milestone: null,
-					createdAt: null,
-					updatedAt: null,
+					milestone: 'v1',
+					createdAt: '2026-01-01T00:00:00Z',
+					updatedAt: '2026-01-02T00:00:00Z',
 					url: 'https://github.com/x/y/issues/7'
 				}
 			]
 		});
 
 		await expect.element(page.getByText('#7 Track issue')).toBeInTheDocument();
+		await expect.element(page.getByText('Assignees: tom')).toBeInTheDocument();
+		await expect.element(page.getByText('Milestone: v1')).toBeInTheDocument();
+		await expect.element(page.getByText('Created: 2026-01-01')).toBeInTheDocument();
+		await expect.element(page.getByText('Updated: 2026-01-02')).toBeInTheDocument();
 		await expect.element(page.getByRole('button', { name: /start/i })).toBeInTheDocument();
 	});
 });

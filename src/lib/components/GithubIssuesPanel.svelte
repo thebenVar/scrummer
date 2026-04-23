@@ -17,6 +17,13 @@
 		githubStore.setQuery(search);
 	});
 
+	function formatDisplayDate(iso: string | null): string {
+		if (!iso) return 'n/a';
+		const date = new Date(iso);
+		if (Number.isNaN(date.getTime())) return 'n/a';
+		return date.toISOString().slice(0, 10);
+	}
+
 	function startFromIssue(issue: GithubIssue) {
 		tracker.startTimerFromGithubIssue(issue, tracker.state.currentUser);
 	}
@@ -71,6 +78,10 @@
 						<div>
 							<p class="text-sm font-semibold">#{issue.number} {issue.title}</p>
 							<p class="mt-1 text-xs text-slate-500">State: {issue.state}</p>
+							<p class="mt-1 text-xs text-slate-500">Assignees: {issue.assignees.length ? issue.assignees.join(', ') : 'none'}</p>
+							<p class="mt-1 text-xs text-slate-500">Milestone: {issue.milestone ?? 'none'}</p>
+							<p class="mt-1 text-xs text-slate-500">Created: {formatDisplayDate(issue.createdAt)}</p>
+							<p class="mt-1 text-xs text-slate-500">Updated: {formatDisplayDate(issue.updatedAt)}</p>
 							<div class="mt-2 flex flex-wrap gap-2 text-xs">
 								{#each issue.labels as label}
 									<span class="rounded-full bg-slate-100 px-2 py-0.5 dark:bg-slate-800">{label}</span>
@@ -94,7 +105,6 @@
 	open={showCreateModal}
 	onClose={() => (showCreateModal = false)}
 	onCreated={async () => {
-		showCreateModal = false;
 		await loadIssues();
 	}}
 />

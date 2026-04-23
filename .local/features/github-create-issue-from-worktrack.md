@@ -45,9 +45,9 @@ flowchart LR
 ## Mermaid: System Placement
 ```mermaid
 graph TD
-  CreateModal --> CreateAPI[/api/github/issues/create]
-  CreateAPI --> GH[gh issue create]
-  CreateAPI --> GHP[gh project item-add]
+  CreateModal --> CreateAPI["/api/github/issues/create"]
+  CreateAPI --> GH["gh issue create"]
+  CreateAPI --> GHP["gh project item-add"]
 ```
 
 ## Mermaid: Module Structure
@@ -57,8 +57,8 @@ classDiagram
     +owner: string
     +repo: string
     +title: string
-    +mode: issue-only|issue-and-project
-    +projectId: string?
+    +mode: string
+    +projectId: string
   }
   class CreateIssueResult {
     +number: number

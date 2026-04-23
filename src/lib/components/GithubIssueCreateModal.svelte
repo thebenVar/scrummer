@@ -18,12 +18,14 @@
 	let submitting = $state(false);
 	let error = $state<string | null>(null);
 	let success = $state<string | null>(null);
+	let warning = $state<string | null>(null);
 
 	async function handleCreate() {
 		if (!owner.trim() || !repo.trim() || !title.trim()) return;
 		submitting = true;
 		error = null;
 		success = null;
+		warning = null;
 		try {
 			const response = await fetch('/api/github/issues/create', {
 				method: 'POST',
@@ -44,7 +46,11 @@
 			}
 
 			success = `Created ${payload.url}`;
+			warning = payload.warning ?? null;
 			onCreated?.();
+			if (!payload.warning) {
+				onClose?.();
+			}
 		} catch (e: any) {
 			error = e?.message ?? 'Failed to create issue';
 		} finally {
@@ -102,6 +108,9 @@
 			{/if}
 			{#if success}
 				<p class="mt-3 text-sm text-emerald-600">{success}</p>
+			{/if}
+			{#if warning}
+				<p class="mt-3 text-sm text-amber-600">{warning}</p>
 			{/if}
 
 			<div class="mt-5 flex justify-end gap-2">

@@ -7,10 +7,12 @@ type ExecLike = (args: string[]) => Promise<{ stdout: string; stderr: string }>;
 
 export async function runGhJson(args: string[], execLike?: ExecLike) {
 	const runner = execLike ?? ((a: string[]) => execFileAsync('gh', a));
-	const { stdout, stderr } = await runner(args);
-
-	if (stderr?.trim()) {
-		throw new Error(stderr.trim());
+	let stdout = '';
+	try {
+		({ stdout } = await runner(args));
+	} catch (error: any) {
+		const message = error?.stderr || error?.message || 'gh command failed';
+		throw new Error(String(message).trim());
 	}
 
 	try {
@@ -29,8 +31,20 @@ interface CreateGithubIssuePayload {
 	projectId?: string;
 }
 
-export async function createGithubIssue(payload: CreateGithubIssuePayload) {
-	const created = await runGhJson([
+interface CreateGithubIssueResult {
+	number: number;
+	title: string;
+	url: string;
+	mode: 'issue-only' | 'issue-and-project';
+	projectLinked: boolean;
+	warning?: string;
+}
+
+export async function createGithubIssue(
+	payload: CreateGithubIssuePayload,
+	runJson: typeof runGhJson = runGhJson
+): Promise<CreateGithubIssueResult> {
+	const created = await runJson([
 		'issue',
 		'create',
 		'--repo',
@@ -44,18 +58,25 @@ export async function createGithubIssue(payload: CreateGithubIssuePayload) {
 	]);
 
 	let projectLinked = false;
+	let warning: string | undefined;
 	if (payload.mode === 'issue-and-project' && payload.projectId) {
-		await runGhJson([
-			'project',
-			'item-add',
-			'--id',
-			payload.projectId,
-			'--url',
-			created.url,
-			'--format',
-			'json'
-		]);
-		projectLinked = true;
+		try {
+			await runJson([
+				'project',
+				'item-add',
+				'--id',
+				payload.projectId,
+				'--url',
+				created.url,
+				'--format',
+				'json'
+			]);
+			projectLinked = true;
+		} catch (error: any) {
+			warning = error?.message
+				? `Issue created, but project link failed: ${error.message}`
+				: 'Issue created, but project link failed.';
+		}
 	}
 
 	return {
@@ -63,6 +84,7 @@ export async function createGithubIssue(payload: CreateGithubIssuePayload) {
 		title: created.title,
 		url: created.url,
 		mode: payload.mode,
-		projectLinked
+		projectLinked,
+		warning
 	};
 }

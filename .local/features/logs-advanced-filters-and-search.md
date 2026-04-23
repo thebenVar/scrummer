@@ -52,9 +52,9 @@ graph TD
 classDiagram
   class LogFilter {
     +query: string
-    +user: string|null
-    +status: string|null
-    +startDate: string|null
-    +endDate: string|null
+    +user: string
+    +status: string
+    +startDate: string
+    +endDate: string
   }
 ```

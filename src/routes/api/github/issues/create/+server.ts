@@ -17,6 +17,10 @@ export async function POST(event: { request: Request }) {
 		return json({ error: 'owner, repo, title, and mode are required' }, { status: 400 });
 	}
 
+	if (payload.mode === 'issue-and-project' && !payload.projectId?.trim()) {
+		return json({ error: 'projectId is required when mode is issue-and-project' }, { status: 400 });
+	}
+
 	try {
 		const result = await createGithubIssue({
 			owner: payload.owner,

@@ -44,15 +44,15 @@ flowchart LR
 ```mermaid
 graph TD
   TimerPanel --> WritebackUI[Writeback Actions]
-  WritebackUI --> WriteAPI[/api/github/...]
-  WriteAPI --> GH[gh CLI]
+  WritebackUI --> WriteAPI["/api/github/..."]
+  WriteAPI --> GH["gh CLI"]
 ```
 
 ## Mermaid: Module Structure
 ```mermaid
 classDiagram
   class WritebackAction {
-    +kind: comment|status
+    +kind: string
     +issueNumber: number
     +payload: string
   }

@@ -52,7 +52,7 @@ graph TD
 ```mermaid
 classDiagram
   class ReportExportRequest {
-    +format: csv|pdf
+    +format: string
     +scope: currentFilters
   }
   class ReportExportResult {

@@ -45,19 +45,27 @@ flowchart LR
 ```mermaid
 graph TD
   UI[GithubIssuesPanel] --> Store[github.svelte.ts]
-  Store --> API[/api/github/issues]
-  API --> GH[gh CLI]
+  Store --> API["/api/github/issues"]
+  API --> GH["gh CLI"]
 ```
 
 ## Mermaid: Module Structure
 ```mermaid
 classDiagram
+  class IssueState {
+    <<enumeration>>
+    OPEN
+    CLOSED
+  }
+
   class GithubIssue {
     +number: number
     +title: string
-    +state: OPEN|CLOSED
-    +labels: string[]
-    +assignees: string[]
-    +milestone: string|null
+    +state: IssueState
+    +labels: string
+    +assignees: string
+    +milestone: string
   }
+
+  GithubIssue --> IssueState : state
 ```

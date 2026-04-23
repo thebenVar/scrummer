@@ -11,9 +11,9 @@ test('user can open github tab and start timer from issue row', async ({ page })
 						number: 55,
 						title: 'Track integration',
 						state: 'OPEN',
-						labels: [{ name: 'feature' }],
-						assignees: [{ login: 'tom' }],
-						milestone: null,
+						labels: ['feature'],
+						assignees: ['tom'],
+						milestone: 'v1',
 						createdAt: '2026-01-01T00:00:00Z',
 						updatedAt: '2026-01-02T00:00:00Z',
 						url: 'https://github.com/acme/repo/issues/55'
@@ -31,6 +31,8 @@ test('user can open github tab and start timer from issue row', async ({ page })
 	await page.getByRole('button', { name: /load issues/i }).click();
 
 	await expect(page.getByText('#55 Track integration')).toBeVisible();
+	await expect(page.getByText('Assignees: tom')).toBeVisible();
+	await expect(page.getByText('Milestone: v1')).toBeVisible();
 	await page.getByRole('button', { name: /start/i }).click();
 	await page.getByRole('button', { name: /timer/i }).click();
 	await expect(page.getByText('#55 Track integration')).toBeVisible();
