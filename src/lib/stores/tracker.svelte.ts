@@ -497,8 +497,17 @@ function createTracker() {
 		}
 	}
 
+	function getTimerForIssue(issueNumber: number): ActiveTimer | undefined {
+		const prefix = `#${issueNumber} `;
+		return [...state.activeTimers, ...state.pausedTimers].find(
+			(t) => t.client === 'GitHub' && t.project === 'Issues' && t.task.startsWith(prefix)
+		);
+	}
+
 	return {
-		get state() { return state; },
+		get state() {
+			return state;
+		},
 		get totalTodaySeconds() {
 			return getUserTotalTodaySeconds(state.currentUser);
 		},
@@ -518,6 +527,7 @@ function createTracker() {
 		getTasks,
 		startTimer,
 		startTimerFromGithubIssue,
+		getTimerForIssue,
 		addPendingTask,
 		pauseTimer,
 		resumeTimer,

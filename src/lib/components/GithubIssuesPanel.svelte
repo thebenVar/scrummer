@@ -266,7 +266,10 @@
 					</div>
 				{:else}
 					{#each displayedIssues as issue (issue.number)}
-						<div class="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-indigo-300 hover:shadow-md dark:border-white/5 dark:bg-slate-800/50 dark:hover:border-white/20">
+						{@const timer = tracker.getTimerForIssue(issue.number)}
+						<div
+							class="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-indigo-300 hover:shadow-md dark:border-white/5 dark:bg-slate-800/50 dark:hover:border-white/20"
+						>
 							<div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
 								<div class="flex-1">
 									<div class="flex items-center gap-2">
@@ -308,6 +311,7 @@
 									{/if}
 								</div>
 
+
 								<div class="flex items-center gap-2 sm:self-center">
 									<a
 										class="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
@@ -317,13 +321,60 @@
 									>
 										<span>🔗</span> Open
 									</a>
-									<button
-										aria-label={`Start #${issue.number}`}
-										class="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-600/20 transition-all hover:-translate-y-0.5 hover:bg-indigo-500 hover:shadow-indigo-600/40 active:translate-y-0"
-										onclick={() => startFromIssue(issue)}
-									>
-										<span>▶️</span> Start
-									</button>
+									{#if !timer}
+										<button
+											aria-label={`Start #${issue.number}`}
+											class="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-600/20 transition-all hover:-translate-y-0.5 hover:bg-indigo-500 hover:shadow-indigo-600/40 active:translate-y-0"
+											onclick={() => startFromIssue(issue)}
+										>
+											<span>▶️</span> Start
+										</button>
+									{:else if timer.running}
+										<div class="flex items-center gap-2">
+											<span
+												class="flex items-center gap-1 rounded-lg bg-emerald-500/10 px-2 py-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400"
+											>
+												<span class="h-2 w-2 animate-pulse rounded-full bg-emerald-500"></span>
+												{tracker.formatDuration(timer.elapsedSeconds)}
+											</span>
+											<button
+												class="rounded-xl bg-slate-200 p-2 text-slate-700 transition-colors hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+												onclick={() => tracker.pauseTimer(timer.id)}
+												title="Pause"
+											>
+												⏸️
+											</button>
+											<button
+												class="rounded-xl bg-emerald-600 p-2 text-white transition-colors hover:bg-emerald-500"
+												onclick={() => tracker.completeTimer(timer.id)}
+												title="Complete"
+											>
+												✅
+											</button>
+										</div>
+									{:else}
+										<div class="flex items-center gap-2">
+											<span
+												class="flex items-center gap-1 rounded-lg bg-amber-500/10 px-2 py-1 text-[11px] font-bold text-amber-600 dark:text-amber-400"
+											>
+												⏸️ {tracker.formatDuration(timer.elapsedSeconds)}
+											</span>
+											<button
+												class="rounded-xl bg-indigo-600 p-2 text-white transition-colors hover:bg-indigo-500"
+												onclick={() => tracker.resumeTimer(timer.id)}
+												title="Resume"
+											>
+												▶️
+											</button>
+											<button
+												class="rounded-xl bg-emerald-600 p-2 text-white transition-colors hover:bg-emerald-500"
+												onclick={() => tracker.completeTimer(timer.id)}
+												title="Complete"
+											>
+												✅
+											</button>
+										</div>
+									{/if}
 								</div>
 							</div>
 						</div>
