@@ -46,6 +46,12 @@ export function createGithubStore() {
 		},
 		endLoading() {
 			loading = false;
+		},
+		clearData() {
+			issues = [];
+			query = '';
+			loading = false;
+			error = null;
 		}
 	};
 }
