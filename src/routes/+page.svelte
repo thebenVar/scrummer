@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 		import { tracker } from '$lib/stores/tracker.svelte';
-	import { authStore } from '$lib/stores/auth.svelte';
 	import NavBar from '$lib/components/NavBar.svelte';
 
 	import TimerPanel from '$lib/components/TimerPanel.svelte';
@@ -15,38 +14,11 @@
 	onMount(async () => {
 		// Initialize the tracker state (loads from localStorage)
 		tracker.init();
-		
-		if (authStore.token) {
-			await authStore.fetchUser();
-		}
 
 		// Load persisted tab
 		const savedTab = localStorage.getItem(TAB_KEY);
 		if (savedTab) activeTab = savedTab;
 	});
-
-	async function handleLogin() {
-		// Device Flow implementation
-		const { githubOAuth } = await import('$lib/github/oauth-client');
-		try {
-			const { verification_uri, user_code } = await githubOAuth.initiateDeviceFlow();
-			
-			// Open GitHub verification page
-			window.open(verification_uri, '_blank');
-			
-			// Show instructions to user (could be a modal)
-			alert(`Please enter the code ${user_code} on GitHub to authorize.`);
-			
-			githubOAuth.startPolling(async (status, data) => {
-				if (status === 'authorized' && data?.access_token) {
-					authStore.setToken(data.access_token);
-					await authStore.fetchUser();
-				}
-			});
-		} catch (e) {
-			alert('Failed to initiate login: ' + (e as Error).message);
-		}
-	}
 
 
 	$effect(() => {
@@ -64,43 +36,6 @@
 	<title>WorkTrack - Advanced Time & Task Manager</title>
 	<meta name="description" content="Manage your time and tasks efficiently with WorkTrack." />
 </svelte:head>
-
-{#if !authStore.isAuthenticated}
-	<!-- Authentication Prompt -->
-	<div class="flex h-screen w-full flex-col items-center justify-center bg-slate-50 dark:bg-slate-950">
-		<div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-xl dark:border-slate-800 dark:bg-slate-900">
-			<div class="mb-6 flex justify-center">
-				<div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/20">
-					<span class="text-3xl">⚡</span>
-				</div>
-			</div>
-			<h1 class="mb-2 text-center text-2xl font-bold text-slate-900 dark:text-white">Welcome to WorkTrack</h1>
-			<p class="mb-8 text-center text-sm text-slate-600 dark:text-slate-400">
-				Manage your time and tasks efficiently. Sign in with GitHub to sync your issues and start tracking.
-			</p>
-			
-			{#if authStore.error}
-				<div class="mb-6 rounded-xl bg-red-50 p-4 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
-					{authStore.error}
-				</div>
-			{/if}
-
-			<button
-				onclick={handleLogin}
-				disabled={authStore.loading}
-				class="flex w-full items-center justify-center gap-3 rounded-xl bg-slate-900 px-4 py-3 font-semibold text-white transition-all hover:bg-slate-800 hover:shadow-lg disabled:opacity-50 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100"
-			>
-				{#if authStore.loading}
-					<span class="h-5 w-5 animate-spin rounded-full border-2 border-slate-400 border-t-white"></span>
-					Connecting...
-				{:else}
-					<span class="text-xl">🐙</span>
-					Continue with GitHub
-				{/if}
-			</button>
-		</div>
-	</div>
-{:else}
 
 	<!-- Main App UI -->
 	<div class="flex h-screen w-full flex-col bg-slate-50 text-slate-900 transition-colors duration-200 dark:bg-slate-950 dark:text-slate-100 lg:flex-row">
@@ -149,4 +84,3 @@
 			</main>
 		</div>
 	</div>
-{/if}

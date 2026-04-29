@@ -12,26 +12,13 @@ export interface UserSession {
 }
 
 const SESSION_KEY = 'worktrack_user_session';
-const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+const SESSION_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days
 
-/**
- * Generate browser fingerprint for unique identification
- */
 function generateBrowserFingerprint(): string {
-	const canvas = document.createElement('canvas');
-	const ctx = canvas.getContext('2d');
-	if (ctx) {
-		ctx.textBaseline = 'top';
-		ctx.font = '14px Arial';
-		ctx.fillText('Browser fingerprint', 2, 2);
-	}
-	
 	const fingerprint = [
 		navigator.userAgent,
 		navigator.language,
-		screen.width + 'x' + screen.height,
-		new Date().getTimezoneOffset(),
-		canvas.toDataURL()
+		new Date().getTimezoneOffset()
 	].join('|');
 	
 	return btoa(fingerprint).slice(0, 16);

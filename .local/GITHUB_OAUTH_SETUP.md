@@ -18,8 +18,8 @@ Device Flow authentication provides a better user experience compared to Persona
 2. Click "New OAuth App"
 3. Fill in the application details:
    - **Application name**: WorkTrack (Local)
-   - **Homepage URL**: `http://localhost:5173`
-   - **Authorization callback URL**: `http://localhost:5173`
+   - **Homepage URL**: `http://192.168.29.241:5173/`
+   - **Authorization callback URL**: `http://192.168.29.241:5173/`
    - **Application description**: Time tracking application with GitHub integration
 
 ### 2. Configure the App

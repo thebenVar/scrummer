@@ -4,7 +4,7 @@
  */
 
 import { authenticateWithToken, validateGitHubTokenFormat } from './auth';
-import { initializeAuth, type AuthInitResult } from './auth-manager';
+import { initializeAuth, logout, type AuthInitResult } from './auth-manager';
 
 export interface LoginState {
   isShowing: boolean;
@@ -83,9 +83,13 @@ export async function handleLogin(credentials: LoginCredentials): Promise<AuthIn
  * Clears authentication state and shows login prompt
  */
 export function handleLogout(): LoginState {
-  // Clear authentication (implemented in auth-manager)
-  const { logout } = require('./auth-manager');
+  // Clear authentication
   logout();
+  
+  // Clear server-side httpOnly cookie
+  if (typeof window !== 'undefined') {
+    fetch('/api/github/oauth/token', { method: 'DELETE' }).catch(console.error);
+  }
 
   // Show login prompt again
   return showLoginPrompt();

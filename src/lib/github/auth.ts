@@ -62,6 +62,7 @@ export function validateGitHubTokenFormat(token: string): boolean {
   
   return (
     token.startsWith('ghp_') && token.length >= 40 ||
+    token.startsWith('gho_') && token.length >= 40 ||
     token.startsWith('github_pat_') && token.length >= 60
   );
 }

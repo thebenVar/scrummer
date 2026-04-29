@@ -6,10 +6,11 @@
 import { json, type Cookies } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { storeGitHubTokenCookie } from '$lib/auth/tokenStorage';
+import { env } from '$env/dynamic/private';
 
 // Server-side OAuth configuration (kept secret)
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
-const CLIENT_ID = process.env.GITHUB_OAUTH_CLIENT_ID || '';
+const CLIENT_ID = env.GITHUB_OAUTH_CLIENT_ID || env.VITE_GITHUB_DEVICE_CLIENT_ID || process.env.GITHUB_OAUTH_CLIENT_ID || process.env.VITE_GITHUB_DEVICE_CLIENT_ID || '';
 
 interface TokenRequest {
 	device_code: string;
@@ -121,6 +122,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 		return json({
 			success: true,
+			access_token: data.access_token,
 			token_type: data.token_type,
 			scope: data.scope
 		});
