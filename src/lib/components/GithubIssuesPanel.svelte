@@ -304,7 +304,7 @@
 				</div>
 			</div>
 
-			<div class="p-6 sm:p-8">
+			<div class="p-4 sm:p-6 lg:p-8">
 				{#if authError}
 					<div class="mb-6 rounded-xl border border-red-200 bg-red-50/50 p-4 text-sm text-red-700 backdrop-blur-sm dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">
 						<div class="flex items-center gap-3">
@@ -315,9 +315,9 @@
 				{/if}
 
 				<div class="space-y-4">
-					<div class="flex items-center gap-3">
+					<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
 						<button
-							class="flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 transition-all hover:-translate-y-0.5 hover:bg-indigo-500 hover:shadow-indigo-600/40 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
+							class="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 transition-all hover:-translate-y-0.5 hover:bg-indigo-500 hover:shadow-indigo-600/40 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
 							onclick={() => (showDeviceAuthModal = true)}
 						>
 							<span>📱</span>
@@ -347,9 +347,9 @@
 		<!-- Main GitHub Panel (only shown when authenticated) -->
 		<div class="overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-2xl backdrop-blur-xl dark:bg-black">
 		<!-- Header -->
-		<div class="flex items-center justify-between border-b border-white/10 bg-slate-100/50 px-6 py-4 dark:bg-black/20">
+		<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-white/10 bg-slate-100/50 px-4 sm:px-6 py-4 dark:bg-black/20">
 			<div class="flex items-center gap-3">
-				<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-xl dark:bg-indigo-500/20">
+				<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10 text-xl dark:bg-indigo-500/20">
 					🐙
 				</div>
 				<div>
@@ -357,17 +357,17 @@
 					<p class="text-xs text-slate-500 dark:text-slate-400">Search and track issues from your repositories</p>
 				</div>
 			</div>
-			<div class="flex items-center gap-3">
+			<div class="flex flex-wrap items-center gap-2 sm:gap-3">
 				<button
 					aria-label="Add GitHub Task"
-					class="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 transition-all hover:-translate-y-0.5 hover:bg-indigo-500 hover:shadow-indigo-600/40 active:translate-y-0"
+					class="flex items-center gap-2 rounded-xl bg-indigo-600 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 transition-all hover:-translate-y-0.5 hover:bg-indigo-500 hover:shadow-indigo-600/40 active:translate-y-0"
 					onclick={() => (showCreateModal = true)}
 				>
-					<span>➕</span> Add GitHub Task
+					<span>➕</span> Add Task
 				</button>
 				<button
 					aria-label="Logout"
-					class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+					class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-slate-700 transition-all hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
 					onclick={handleLogoutClick}
 					title="Logout from GitHub"
 				>
@@ -375,7 +375,7 @@
 				</button>
 				<button
 					aria-label="Debug Auth"
-					class="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700 transition-all hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-900/50 dark:text-amber-300 dark:hover:bg-amber-900/70"
+					class="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-2 sm:px-3 py-2 text-xs sm:text-sm font-semibold text-amber-700 transition-all hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-900/50 dark:text-amber-300 dark:hover:bg-amber-900/70"
 					onclick={handleForceLogout}
 					title="Force logout and clear authentication (debug)"
 				>
@@ -384,9 +384,9 @@
 			</div>
 		</div>
 
-		<div class="p-6 sm:p-8">
+		<div class="p-4 sm:p-6 lg:p-8">
 			<!-- Filters Section -->
-			<div class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-4">
+			<div class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
 				<!-- Owner Selection -->
 				<div class="relative flex flex-col gap-1.5">
 					<label for="gh-owner-input" class="text-xs font-medium text-slate-500 dark:text-slate-400">Owner / Organization</label>
@@ -565,67 +565,71 @@
 								</div>
 
 
-								<div class="flex items-center gap-2 sm:self-center">
+								<div class="mt-4 flex flex-wrap items-center gap-2 sm:mt-0 sm:self-center">
 									<a
-										class="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+										class="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
 										href={issue.url}
 										target="_blank"
 										rel="noreferrer"
 									>
-										<span>🔗</span> Open
+										<span>🔗</span> <span class="hidden sm:inline">Open</span>
 									</a>
 									{#if !timer}
 										<button
 											aria-label={`Start #${issue.number}`}
-											class="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-600/20 transition-all hover:-translate-y-0.5 hover:bg-indigo-500 hover:shadow-indigo-600/40 active:translate-y-0"
+											class="flex flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-600/20 transition-all hover:-translate-y-0.5 hover:bg-indigo-500 hover:shadow-indigo-600/40 active:translate-y-0"
 											onclick={() => startFromIssue(issue)}
 										>
 											<span>▶️</span> Start
 										</button>
 									{:else if timer.running}
-										<div class="flex items-center gap-2">
+										<div class="flex w-full sm:w-auto items-center justify-between sm:justify-start gap-2">
 											<span
 												class="flex items-center gap-1 rounded-lg bg-emerald-500/10 px-2 py-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400"
 											>
 												<span class="h-2 w-2 animate-pulse rounded-full bg-emerald-500"></span>
 												{tracker.formatDuration(timer.elapsedSeconds)}
 											</span>
-											<button
-												class="rounded-xl bg-slate-200 p-2 text-slate-700 transition-colors hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
-												onclick={() => tracker.pauseTimer(timer.id)}
-												title="Pause"
-											>
-												⏸️
-											</button>
-											<button
-												class="rounded-xl bg-emerald-600 p-2 text-white transition-colors hover:bg-emerald-500"
-												onclick={() => tracker.completeTimer(timer.id)}
-												title="Complete"
-											>
-												✅
-											</button>
+											<div class="flex items-center gap-2">
+												<button
+													class="rounded-xl bg-slate-200 p-2 text-slate-700 transition-colors hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+													onclick={() => tracker.pauseTimer(timer.id)}
+													title="Pause"
+												>
+													⏸️
+												</button>
+												<button
+													class="rounded-xl bg-emerald-600 p-2 text-white transition-colors hover:bg-emerald-500"
+													onclick={() => tracker.completeTimer(timer.id)}
+													title="Complete"
+												>
+													✅
+												</button>
+											</div>
 										</div>
 									{:else}
-										<div class="flex items-center gap-2">
+										<div class="flex w-full sm:w-auto items-center justify-between sm:justify-start gap-2">
 											<span
 												class="flex items-center gap-1 rounded-lg bg-amber-500/10 px-2 py-1 text-[11px] font-bold text-amber-600 dark:text-amber-400"
 											>
 												⏸️ {tracker.formatDuration(timer.elapsedSeconds)}
 											</span>
-											<button
-												class="rounded-xl bg-indigo-600 p-2 text-white transition-colors hover:bg-indigo-500"
-												onclick={() => tracker.resumeTimer(timer.id)}
-												title="Resume"
-											>
-												▶️
-											</button>
-											<button
-												class="rounded-xl bg-emerald-600 p-2 text-white transition-colors hover:bg-emerald-500"
-												onclick={() => tracker.completeTimer(timer.id)}
-												title="Complete"
-											>
-												✅
-											</button>
+											<div class="flex items-center gap-2">
+												<button
+													class="rounded-xl bg-indigo-600 p-2 text-white transition-colors hover:bg-indigo-500"
+													onclick={() => tracker.resumeTimer(timer.id)}
+													title="Resume"
+												>
+													▶️
+												</button>
+												<button
+													class="rounded-xl bg-emerald-600 p-2 text-white transition-colors hover:bg-emerald-500"
+													onclick={() => tracker.completeTimer(timer.id)}
+													title="Complete"
+												>
+													✅
+												</button>
+											</div>
 										</div>
 									{/if}
 								</div>

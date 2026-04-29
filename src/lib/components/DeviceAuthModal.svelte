@@ -83,12 +83,19 @@
 		}
 	}
 
+	let now = $state(Date.now());
+	
 	// Auto-start device flow when component mounts
 	$effect(() => {
 		startDeviceFlow();
 		
+		const interval = setInterval(() => {
+			now = Date.now();
+		}, 1000);
+		
 		// Cleanup on unmount
 		return () => {
+			clearInterval(interval);
 			deviceFlowService.cleanup();
 		};
 	});
@@ -97,7 +104,7 @@
 	function getTimeRemaining(): string {
 		if (!deviceState) return '';
 		
-		const remaining = Math.max(0, deviceState.expiresAt - Date.now());
+		const remaining = Math.max(0, deviceState.expiresAt - now);
 		const minutes = Math.floor(remaining / 60000);
 		const seconds = Math.floor((remaining % 60000) / 1000);
 		return `${minutes}:${seconds.toString().padStart(2, '0')}`;
@@ -106,14 +113,14 @@
 	// Check if code is expiring soon (less than 2 minutes)
 	function isExpiringSoon(): boolean {
 		if (!deviceState) return false;
-		return (deviceState.expiresAt - Date.now()) < 120000; // 2 minutes
+		return (deviceState.expiresAt - now) < 120000; // 2 minutes
 	}
 </script>
 
 <div class="overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-2xl backdrop-blur-xl dark:bg-black">
-	<div class="flex items-center justify-between border-b border-white/10 bg-slate-100/50 px-6 py-4 dark:bg-black/20">
+	<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-white/10 bg-slate-100/50 px-4 sm:px-6 py-4 dark:bg-black/20 gap-3">
 		<div class="flex items-center gap-3">
-			<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-xl dark:bg-indigo-500/20">
+			<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10 text-xl dark:bg-indigo-500/20">
 				🔐
 			</div>
 			<div>
@@ -123,14 +130,14 @@
 		</div>
 		<button
 			onclick={cancelDeviceFlow}
-			class="rounded-lg p-2 text-slate-400 hover:bg-slate-200/50 hover:text-slate-600 dark:hover:bg-slate-700/50 dark:hover:text-slate-300"
+			class="self-end sm:self-auto rounded-lg p-2 text-slate-400 hover:bg-slate-200/50 hover:text-slate-600 dark:hover:bg-slate-700/50 dark:hover:text-slate-300 absolute top-4 right-4 sm:static"
 			title="Cancel"
 		>
 			✕
 		</button>
 	</div>
 
-	<div class="p-6 sm:p-8">
+	<div class="p-4 sm:p-6 lg:p-8">
 		{#if error}
 			<div class="mb-6 rounded-xl border border-red-200 bg-red-50/50 p-4 text-sm text-red-700 backdrop-blur-sm dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">
 				<div class="flex items-center gap-3">
@@ -160,8 +167,8 @@
 					<p class="mb-4 text-sm font-medium text-slate-700 dark:text-slate-300">
 						Enter this code on GitHub:
 					</p>
-					<div class="mx-auto inline-flex items-center gap-3 rounded-2xl border-2 border-indigo-200 bg-indigo-50 px-6 py-4 dark:border-indigo-500/30 dark:bg-indigo-500/10">
-						<span class="text-3xl font-mono font-bold tracking-wider text-indigo-600 dark:text-indigo-400">
+					<div class="mx-auto flex flex-col sm:flex-row items-center gap-3 rounded-2xl border-2 border-indigo-200 bg-indigo-50 px-4 sm:px-6 py-4 dark:border-indigo-500/30 dark:bg-indigo-500/10 w-full sm:w-auto justify-center">
+						<span class="text-2xl sm:text-3xl font-mono font-bold tracking-wider text-indigo-600 dark:text-indigo-400">
 							{deviceState.userCode}
 						</span>
 						<button
