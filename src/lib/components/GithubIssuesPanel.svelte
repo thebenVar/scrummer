@@ -47,6 +47,10 @@
 
 	// Handle logout
 	function handleLogoutClick() {
+		if (!window.confirm('Are you sure you want to log out of GitHub? You will need to re-authenticate later.')) {
+			return;
+		}
+		console.log('🚪 Logging out...');
 		loginState = handleLogout();
 		isAuthenticated = false;
 		showDeviceAuthModal = false;

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { getUserProfile, getUserOrgs, githubGet, githubPost } from '$lib/github/api';
 	let {
 		open = false,
 		onClose,
@@ -35,7 +36,6 @@
 		loadingOwners = true;
 		errorSource = null;
 		try {
-			const { getUserProfile, getUserOrgs } = await import('$lib/github/api');
 			const [profile, orgs] = await Promise.all([
 				getUserProfile() as any,
 				getUserOrgs() as any[]
@@ -76,7 +76,6 @@
 			return;
 		}
 		try {
-			const { githubGet } = await import('$lib/github/api');
 			let repoList = [];
 			try {
 				repoList = await githubGet(`/users/${encodeURIComponent(nextOwner)}/repos?per_page=100`) as any[];
@@ -141,8 +140,6 @@
 		warning = null;
 		errorSource = null;
 		try {
-			const { githubPost } = await import('$lib/github/api');
-			
 			const issuePayload: any = {
 				title: title.trim()
 			};
@@ -153,16 +150,14 @@
 			
 			const createdIssue = await githubPost(`/repos/${owner.trim()}/${repo.trim()}/issues`, issuePayload) as any;
 			
-			success = `Created ${createdIssue.html_url}`;
+			success = `Created Issue #${createdIssue.number} successfully! You can find it at ${createdIssue.html_url}`;
 			
 			if (mode === 'issue-and-project' && projectId) {
 				warning = "Note: Project assignment requires GitHub CLI or GraphQL API and isn't fully supported via REST. Issue was created but might not be on the project board.";
 			}
 			
 			onCreated?.();
-			if (!warning) {
-				onClose?.();
-			}
+			// We intentionally do not call onClose() here so the user can see the success message.
 		} catch (e: any) {
 			errorSource ??= 'create';
 			error = e?.message ?? 'Failed to create issue';
@@ -382,27 +377,37 @@
 			</div>
 
 			<div class="flex items-center justify-end gap-3 border-t border-slate-100 bg-slate-50/50 px-6 py-4 dark:border-white/10 dark:bg-black/20">
-				<button
-					type="button"
-					onclick={() => onClose?.()}
-					class="rounded-xl px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors"
-				>
-					Cancel
-				</button>
-				<button
-					aria-label="Create"
-					type="button"
-					onclick={handleCreate}
-					disabled={submitting || !owner || !repo || !title.trim()}
-					class="flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 transition-all hover:-translate-y-0.5 hover:bg-indigo-500 hover:shadow-indigo-600/40 active:translate-y-0 disabled:pointer-events-none disabled:opacity-50"
-				>
-					{#if submitting}
-						<span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-						Creating...
-					{:else}
-						Create Issue
-					{/if}
-				</button>
+				{#if success}
+					<button
+						type="button"
+						onclick={() => onClose?.()}
+						class="rounded-xl bg-indigo-600 px-8 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 transition-all hover:-translate-y-0.5 hover:bg-indigo-500 hover:shadow-indigo-600/40 active:translate-y-0"
+					>
+						Done
+					</button>
+				{:else}
+					<button
+						type="button"
+						onclick={() => onClose?.()}
+						class="rounded-xl px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors"
+					>
+						Cancel
+					</button>
+					<button
+						aria-label="Create"
+						type="button"
+						onclick={handleCreate}
+						disabled={submitting || !owner || !repo || !title.trim()}
+						class="flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 transition-all hover:-translate-y-0.5 hover:bg-indigo-500 hover:shadow-indigo-600/40 active:translate-y-0 disabled:pointer-events-none disabled:opacity-50"
+					>
+						{#if submitting}
+							<span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+							Creating...
+						{:else}
+							Create Issue
+						{/if}
+					</button>
+				{/if}
 			</div>
 		</div>
 	</div>
