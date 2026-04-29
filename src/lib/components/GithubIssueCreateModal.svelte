@@ -41,11 +41,25 @@
 				getUserOrgs() as any[]
 			]);
 			
-			const ownerLogins = [profile.login];
+			const ownerLogins = new Set([profile.login]);
 			if (orgs && Array.isArray(orgs)) {
-				ownerLogins.push(...orgs.map(org => org.login));
+				orgs.forEach(org => ownerLogins.add(org.login));
 			}
-			owners = ownerLogins.filter(Boolean);
+
+			// Also try to get options from the local workspace
+			try {
+				const response = await fetch('/api/github/options/owners');
+				if (response.ok) {
+					const data = await response.json();
+					if (data.owners && Array.isArray(data.owners)) {
+						data.owners.forEach((o: string) => ownerLogins.add(o));
+					}
+				}
+			} catch (e) {
+				console.log('Local server owners not available', e);
+			}
+
+			owners = Array.from(ownerLogins).filter(Boolean);
 		} catch (e: any) {
 			errorSource = 'owners';
 			error = e?.message ?? 'Failed to load owner options';
