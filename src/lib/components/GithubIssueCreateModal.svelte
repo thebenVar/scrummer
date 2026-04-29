@@ -35,10 +35,17 @@
 		loadingOwners = true;
 		errorSource = null;
 		try {
-			const response = await fetch('/api/github/options/owners');
-			const payload = await response.json();
-			if (!response.ok) throw new Error(payload.error ?? 'Failed to load owners');
-			owners = payload.owners ?? [];
+			const { getUserProfile, getUserOrgs } = await import('$lib/github/api');
+			const [profile, orgs] = await Promise.all([
+				getUserProfile() as any,
+				getUserOrgs() as any[]
+			]);
+			
+			const ownerLogins = [profile.login];
+			if (orgs && Array.isArray(orgs)) {
+				ownerLogins.push(...orgs.map(org => org.login));
+			}
+			owners = ownerLogins.filter(Boolean);
 		} catch (e: any) {
 			errorSource = 'owners';
 			error = e?.message ?? 'Failed to load owner options';
@@ -55,11 +62,15 @@
 			return;
 		}
 		try {
-			const response = await fetch(`/api/github/options/repos?owner=${encodeURIComponent(nextOwner)}`);
-			const payload = await response.json();
-			if (!response.ok) throw new Error(payload.error ?? 'Failed to load repos');
+			const { githubGet } = await import('$lib/github/api');
+			let repoList = [];
+			try {
+				repoList = await githubGet(`/users/${encodeURIComponent(nextOwner)}/repos?per_page=100`) as any[];
+			} catch {
+				repoList = await githubGet(`/orgs/${encodeURIComponent(nextOwner)}/repos?per_page=100`) as any[];
+			}
 			if (requestId !== repoRequestSeq) return;
-			repos = payload.repos ?? [];
+			repos = repoList.map((item: any) => item.name || item).filter(Boolean);
 			errorSource = null;
 		} catch (e: any) {
 			if (requestId !== repoRequestSeq) return;
@@ -116,29 +127,26 @@
 		warning = null;
 		errorSource = null;
 		try {
-			const response = await fetch('/api/github/issues/create', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
-					owner: owner.trim(),
-					repo: repo.trim(),
-					title: title.trim(),
-					body: body.trim(),
-					mode,
-					projectId: mode === 'issue-and-project' ? projectId.trim() : undefined
-				})
-			});
-
-			const payload = await response.json();
-			if (!response.ok) {
-				errorSource = 'create';
-				throw new Error(payload.error ?? 'Failed to create issue');
+			const { githubPost } = await import('$lib/github/api');
+			
+			const issuePayload: any = {
+				title: title.trim()
+			};
+			
+			if (body.trim()) {
+				issuePayload.body = body.trim();
 			}
-
-			success = `Created ${payload.url}`;
-			warning = payload.warning ?? null;
+			
+			const createdIssue = await githubPost(`/repos/${owner.trim()}/${repo.trim()}/issues`, issuePayload) as any;
+			
+			success = `Created ${createdIssue.html_url}`;
+			
+			if (mode === 'issue-and-project' && projectId) {
+				warning = "Note: Project assignment requires GitHub CLI or GraphQL API and isn't fully supported via REST. Issue was created but might not be on the project board.";
+			}
+			
 			onCreated?.();
-			if (!payload.warning) {
+			if (!warning) {
 				onClose?.();
 			}
 		} catch (e: any) {

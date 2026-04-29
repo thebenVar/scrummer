@@ -3,8 +3,6 @@
  * Implements GitHub's Device Flow for token-based authentication
  */
 
-const GITHUB_DEVICE_CODE_URL = 'https://github.com/login/device/code';
-const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 const CLIENT_ID = import.meta.env.VITE_GITHUB_DEVICE_CLIENT_ID || 'YOUR_CLIENT_ID';
 
 // Check if CLIENT_ID is properly configured
@@ -53,21 +51,21 @@ export class DeviceFlowService {
 		}
 		
 		try {
-			// Request device code from GitHub
-			const response = await fetch(GITHUB_DEVICE_CODE_URL, {
+			// Request device code from server (which proxies to GitHub)
+			const response = await fetch('/api/github/oauth/device-code', {
 				method: 'POST',
 				headers: {
 					'Accept': 'application/json',
 					'Content-Type': 'application/json',
 				},
 				body: JSON.stringify({
-					client_id: CLIENT_ID,
 					scope: 'repo read:org'
 				})
 			});
 
 			if (!response.ok) {
-				throw new Error(`Failed to initiate device flow: ${response.statusText}`);
+				const errorData = await response.json();
+				throw new Error(`Failed to initiate device flow: ${errorData.message || response.statusText}`);
 			}
 
 			const data: DeviceCodeResponse = await response.json();
@@ -150,58 +148,86 @@ export class DeviceFlowService {
 		try {
 			console.log('🔐 Polling for authorization status...');
 			
-			const response = await fetch(GITHUB_TOKEN_URL, {
+			const response = await fetch('/api/github/oauth/token', {
 				method: 'POST',
 				headers: {
 					'Accept': 'application/json',
 					'Content-Type': 'application/json',
 				},
 				body: JSON.stringify({
-					client_id: CLIENT_ID,
-					device_code: this.state.deviceCode,
-					grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
+					device_code: this.state.deviceCode
 				})
 			});
 
-			if (!response.ok) {
-				const errorData = await response.json();
+			// Handle different response statuses
+			if (response.status === 202 || response.status === 200) {
+				const data = await response.json();
 				
-				if (errorData.error === 'authorization_pending') {
+				if (data.error === 'authorization_pending') {
 					// User hasn't authorized yet, continue polling
 					console.log('🔐 Authorization pending, continuing poll...');
 					this.scheduleNextPoll();
 					return;
-				} else if (errorData.error === 'slow_down') {
+				} else if (data.error === 'slow_down') {
 					// GitHub is asking us to slow down
 					console.log('🔐 Slow down requested, increasing interval...');
 					this.state.interval *= 1.5;
 					this.scheduleNextPoll();
 					return;
-				} else if (errorData.error === 'expired_token') {
+				} else if (data.error === 'expired_token') {
 					console.log('🔐 Device code expired during polling');
 					this.state.status = 'expired';
 					this.state.isPolling = false;
 					this.notifyStateChange();
 					return;
-				} else {
-					throw new Error(`Polling error: ${errorData.error_description || errorData.error}`);
+				} else if (data.error === 'authorization_declined') {
+					console.log('🔐 User declined authorization');
+					this.state.status = 'error';
+					this.state.error = 'Authorization declined by user';
+					this.state.isPolling = false;
+					this.notifyStateChange();
+					return;
 				}
-			}
 
-			// Authorization successful!
-			const tokenData: DeviceTokenResponse = await response.json();
-			console.log('🔐 Authorization successful!');
+				// Authorization successful!
+				if (data.access_token && this.state) {
+					const tokenData: DeviceTokenResponse = {
+						access_token: data.access_token,
+						token_type: data.token_type || 'bearer',
+						scope: data.scope || 'repo read:org'
+					};
 
-			if (this.state) {
-				this.state.status = 'authorized';
+					// Store the token using existing auth system FIRST
+					const { authenticateWithToken } = await import('./auth');
+					authenticateWithToken(tokenData.access_token);
+
+					console.log('🔐 Authorization successful!');
+					this.state.status = 'authorized';
+					this.state.isPolling = false;
+					this.notifyStateChange();
+					
+					return;
+				}
+			} else if (response.status === 410) {
+				// Device code expired
+				console.log('🔐 Device code expired');
+				this.state.status = 'expired';
 				this.state.isPolling = false;
+				this.notifyStateChange();
+				return;
+			} else if (response.status === 403) {
+				// Authorization declined
+				const data = await response.json();
+				console.log('🔐 Authorization declined');
+				this.state.status = 'error';
+				this.state.error = data.message || 'Authorization declined';
+				this.state.isPolling = false;
+				this.notifyStateChange();
+				return;
+			} else {
+				const errorData = await response.json();
+				throw new Error(`Polling error: ${errorData.message || response.statusText}`);
 			}
-
-			this.notifyStateChange();
-			
-			// Store the token using existing auth system
-			const { authenticateWithToken } = await import('./auth');
-			authenticateWithToken(tokenData.access_token);
 
 		} catch (error) {
 			console.error('🔐 Polling error:', error);

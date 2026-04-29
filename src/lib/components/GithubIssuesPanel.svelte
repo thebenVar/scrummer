@@ -3,12 +3,11 @@
 	import type { GithubIssue } from '$lib/github/types';
 	import { tracker } from '$lib/stores/tracker.svelte';
 	import { githubStore } from '$lib/stores/github.svelte';
-	import { getOrgsFromCli, getReposFromCli, getIssuesFromCli, getServerStatus, getGitHubTokenFromCli, GitHubAuthError } from '$lib/github/api';
+	import { getServerStatus, getGitHubTokenFromCli, GitHubAuthError, getUserProfile, getUserOrgs, getUserRepos, getRepoIssues, githubGet } from '$lib/github/api';
 	import { handleLogout, showLoginPrompt, type LoginState } from '$lib/github/login-flow';
 	import { getAuthState, storeGitHubToken } from '$lib/github/auth';
 	import { forceLogout, testAuthFlow } from '$lib/github/test-auth';
 	import GithubIssueCreateModal from './GithubIssueCreateModal.svelte';
-	import GhAuthModal from './GhAuthModal.svelte';
 	import DeviceAuthModal from './DeviceAuthModal.svelte';
 
 	let { issues = [] }: { issues?: GithubIssue[] } = $props();
@@ -17,9 +16,7 @@
 	let isAuthenticated = $state(false);
 	let loginState = $state<LoginState>({ isShowing: false, isLoading: false });
 	let authError = $state('');
-	let showGhAuthModal = $state(false);
 	let showDeviceAuthModal = $state(false);
-	let serverStatus = $state<{ type: 'local' | 'remote'; status: 'connected' | 'disconnected'; url: string; message: string } | null>(null);
 
 	// GitHub data state
 	let owner = $state('');
@@ -31,21 +28,13 @@
 	let owners = $state<string[]>([]);
 	let repos = $state<string[]>([]);
 	let loadingOptions = $state(false);
+	let loadingRepos = $state(false);
 	let errorSource = $state<'owners' | 'repos' | 'issues' | null>(null);
 	let repoRequestSeq = 0;
 
 	const displayedIssues = $derived(issues.length > 0 ? issues : githubStore.filteredIssues);
 
 	// Authentication initialization is now handled in onMount
-
-	async function handleGhAuthSuccess() {
-		showGhAuthModal = false;
-		isAuthenticated = true;
-		loginState = { isShowing: false, isLoading: false };
-		authError = '';
-		await loadOwners();
-		await loadUserRepos();
-	}
 
 	async function handleDeviceAuthSuccess() {
 		showDeviceAuthModal = false;
@@ -56,21 +45,10 @@
 		await loadUserRepos();
 	}
 
-	function startPreferredAuth() {
-		if (serverStatus?.type === 'local') {
-			showGhAuthModal = true;
-			showDeviceAuthModal = false;
-			return;
-		}
-		showDeviceAuthModal = true;
-		showGhAuthModal = false;
-	}
-
 	// Handle logout
 	function handleLogoutClick() {
 		loginState = handleLogout();
 		isAuthenticated = false;
-		showGhAuthModal = false;
 		showDeviceAuthModal = false;
 		owners = [];
 		repos = [];
@@ -138,11 +116,17 @@
 		loadingOptions = true;
 		errorSource = null;
 		try {
-			console.log('📋 Fetching user organizations...');
-			const orgs = (await getOrgsFromCli()) as any[];
-			console.log('📋 Organizations received:', orgs);
-			// Extract login/org name from GitHub API response
-			owners = orgs.map((org) => org.login || org.name || '').filter(Boolean);
+			console.log('📋 Fetching user profile and organizations...');
+			const [profile, orgs] = await Promise.all([
+				getUserProfile() as any,
+				getUserOrgs() as any[]
+			]);
+			
+			const ownerLogins = [profile.login];
+			if (orgs && Array.isArray(orgs)) {
+				ownerLogins.push(...orgs.map(org => org.login));
+			}
+			owners = ownerLogins.filter(Boolean);
 			console.log('📋 Owners set:', owners);
 			errorSource = null;
 		} catch (e: any) {
@@ -167,9 +151,9 @@
 		if (!isAuthenticated) return;
 		
 		try {
-			const userRepos = (await getReposFromCli()) as any[];
+			const userRepos = (await getUserRepos()) as any[];
 			// Extract repo names from GitHub API response
-			repos = userRepos.map((repo) => repo.name || '').filter(Boolean);
+			repos = userRepos.map((r) => r.name || '').filter(Boolean);
 			errorSource = null;
 		} catch (e: any) {
 			if (e instanceof GitHubAuthError || e.message?.includes('401') || e.message?.includes('Unauthorized')) {
@@ -193,8 +177,15 @@
 			repo = '';
 			return;
 		}
+		loadingRepos = true;
 		try {
-			const repoList = (await getReposFromCli(nextOwner)) as any[];
+			let repoList = [];
+			try {
+				repoList = await githubGet(`/users/${encodeURIComponent(nextOwner)}/repos?per_page=100`) as any[];
+			} catch {
+				repoList = await githubGet(`/orgs/${encodeURIComponent(nextOwner)}/repos?per_page=100`) as any[];
+			}
+			if (requestId !== repoRequestSeq) return;
 			repos = repoList.map((item: any) => item.name || item).filter(Boolean);
 			if (!repos.includes(repo)) {
 				repo = '';
@@ -208,6 +199,10 @@
 				githubStore.setError(e?.message ?? 'Failed to load repo options');
 			}
 			errorSource = 'repos';
+		} finally {
+			if (requestId === repoRequestSeq) {
+				loadingRepos = false;
+			}
 		}
 	}
 
@@ -230,8 +225,6 @@
 	onMount(() => {
 		console.log('🚀 Component mounted, checking authentication...');
 		void (async () => {
-			serverStatus = await getServerStatus();
-			console.log('🚀 Server status:', serverStatus);
 			const token = getAuthState();
 			console.log('🚀 Token in session:', token);
 
@@ -246,25 +239,6 @@
 
 			isAuthenticated = false;
 			loginState = showLoginPrompt();
-
-			// For local mode, auto-import token from local gh CLI if available.
-			if (serverStatus.type === 'local') {
-				try {
-					const tokenFromCli = await getGitHubTokenFromCli();
-					if (tokenFromCli) {
-						storeGitHubToken(tokenFromCli);
-						isAuthenticated = true;
-						loginState = { isShowing: false, isLoading: false };
-						await loadOwners();
-						await loadUserRepos();
-						return;
-					}
-				} catch {
-					// Ignore and present auth modal to complete CLI login.
-				}
-			}
-
-			startPreferredAuth();
 		})();
 	});
 
@@ -273,7 +247,7 @@
 		errorSource = null;
 		githubStore.startLoading();
 		try {
-			const issues = (await getIssuesFromCli(owner.trim(), repo.trim())) as any[];
+			const issues = (await getRepoIssues(owner.trim(), repo.trim())) as any[];
 			// Normalize GitHub API issues to app model
 			const normalized = issues.map((issue: any) => ({
 				number: issue.number,
@@ -311,7 +285,7 @@
 					</div>
 					<div>
 						<h2 class="text-lg font-semibold text-slate-800 dark:text-slate-100">GitHub Authentication</h2>
-						<p class="text-xs text-slate-500 dark:text-slate-400">{serverStatus?.message ?? 'Choose authentication method'}</p>
+						<p class="text-xs text-slate-500 dark:text-slate-400">Secure Device Flow Login</p>
 					</div>
 				</div>
 			</div>
@@ -330,15 +304,10 @@
 					<div class="flex items-center gap-3">
 						<button
 							class="flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 transition-all hover:-translate-y-0.5 hover:bg-indigo-500 hover:shadow-indigo-600/40 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
-							onclick={startPreferredAuth}
+							onclick={() => (showDeviceAuthModal = true)}
 						>
-							{#if serverStatus?.type === 'local'}
-								<span>🖥️</span>
-								Authenticate with GitHub CLI
-							{:else}
-								<span>📱</span>
-								Authenticate with Device Flow
-							{/if}
+							<span>📱</span>
+							Authenticate with GitHub
 						</button>
 						
 						<button
@@ -352,9 +321,9 @@
 					<div class="rounded-xl border border-slate-200 bg-slate-50/50 p-4 dark:border-slate-700/50 dark:bg-slate-800/50">
 						<h3 class="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-300">How this works:</h3>
 						<ol class="list-decimal list-inside space-y-1 text-xs text-slate-600 dark:text-slate-400">
-							<li>Desktop/local server: uses local <code class="rounded bg-slate-200 px-1 dark:bg-slate-700">gh auth login</code> credentials.</li>
-							<li>Mobile/remote mode: falls back to GitHub Device Flow OAuth.</li>
-							<li>Authentication is scoped per device and user session.</li>
+							<li>Authentication is securely handled via GitHub Device Flow OAuth.</li>
+							<li>Your authentication is securely scoped to this specific device.</li>
+							<li>You will remain logged in until you explicitly click Logout.</li>
 						</ol>
 					</div>
 				</div>
@@ -416,8 +385,9 @@
 								if (owners.length > 0) showOwnersDropdown = true;
 							}}
 							onblur={() => setTimeout(() => (showOwnersDropdown = false), 200)}
-							class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-sm outline-none transition-all focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 dark:border-slate-700/50 dark:bg-slate-800/50 dark:text-white dark:focus:bg-slate-800"
+							class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-sm outline-none transition-all focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 disabled:opacity-50 disabled:cursor-not-allowed dark:border-slate-700/50 dark:bg-slate-800/50 dark:text-white dark:focus:bg-slate-800"
 							placeholder={loadingOptions ? 'Loading...' : 'e.g. facebook'}
+							disabled={loadingOptions}
 						/>
 						{#if showOwnersDropdown && owners.length > 0}
 							{@const filteredOwners = owners.filter(o => o.toLowerCase().includes(owner.toLowerCase()))}
@@ -458,8 +428,9 @@
 								if (repos.length > 0) showReposDropdown = true;
 							}}
 							onblur={() => setTimeout(() => (showReposDropdown = false), 200)}
-							class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-sm outline-none transition-all focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 dark:border-slate-700/50 dark:bg-slate-800/50 dark:text-white dark:focus:bg-slate-800"
-							placeholder={owner ? 'e.g. react' : 'Select owner first'}
+							class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-sm outline-none transition-all focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 disabled:opacity-50 disabled:cursor-not-allowed dark:border-slate-700/50 dark:bg-slate-800/50 dark:text-white dark:focus:bg-slate-800"
+							placeholder={loadingRepos ? 'Loading repositories...' : (owner ? 'e.g. react' : 'Select owner first')}
+							disabled={!owner || loadingRepos}
 						/>
 						{#if showReposDropdown && repos.length > 0}
 							{@const filteredRepos = repos.filter(r => r.toLowerCase().includes(repo.toLowerCase()))}
@@ -662,19 +633,6 @@
 	}}
 />
 
-{#if showGhAuthModal}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-		<div class="w-full max-w-xl">
-			<GhAuthModal
-				onSuccess={handleGhAuthSuccess}
-				onCancel={() => {
-					showGhAuthModal = false;
-					loginState = showLoginPrompt();
-				}}
-			/>
-		</div>
-	</div>
-{/if}
 
 {#if showDeviceAuthModal}
 	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
