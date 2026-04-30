@@ -1,32 +1,28 @@
-# Feature: GitHub OAuth Refactor
+# Feature: GitHub OAuth Authentication
 
 ## Description
 
-Refactor the time tracker app to replace GitHub CLI commands with standard OAuth authentication. Users will log in via browser, with the resulting token stored securely on the client side for API calls.
+Pure OAuth 2.0 device flow authentication for GitHub integration. No CLI dependencies, no manual token management—just browser-based login with secure token handling.
 
 ## User Story
 
-As a user, I want to authenticate with GitHub using a standard OAuth flow in my browser instead of relying on the GitHub CLI, so that the authentication is simpler, more reliable, and doesn't require CLI installation or manual token management.
+As a user, I want to authenticate with GitHub via OAuth device flow so I can securely access my repositories and issues without managing tokens or installing CLI tools.
 
 ## User Benefits
 
-- **Simpler authentication** - No need to install or configure GitHub CLI
-- **Standard OAuth experience** - Familiar browser-based login flow
-- **Automatic token management** - Tokens handled automatically by OAuth flow
-- **Better security** - No manual token copy-paste, tokens stored securely
-- **Cross-platform** - Works on any device with a browser, no CLI dependencies
+- **Zero CLI dependencies** - Works entirely in the browser
+- **Secure by default** - OAuth tokens with automatic refresh
+- **Simple UX** - Enter device code, authorize on GitHub, done
+- **Cross-platform** - Any device with a browser
 
 ## Acceptance Criteria
 
-- [ ] OAuth 2.0 device flow implemented for browser-based authentication
-- [ ] GitHub CLI endpoints deprecated/removed from codebase
-- [ ] Secure token storage using httpOnly cookies or session storage
-- [ ] Token refresh flow handled (if applicable)
-- [ ] All existing GitHub API functionality migrated to OAuth tokens
-- [ ] Fallback to manual PAT input for users without OAuth capability
-- [ ] OAuth configuration documented (CLIENT_ID setup)
-- [ ] Unit tests for new OAuth components
-- [ ] E2E tests for authentication flow
+- [ ] OAuth 2.0 device flow fully implemented
+- [ ] Secure token storage (sessionStorage)
+- [ ] Token refresh when expired
+- [ ] All GitHub API calls use OAuth tokens
+- [ ] Manual PAT fallback for edge cases
+- [ ] Clear OAuth setup documentation
 
 ## Rough Complexity Estimate
 
@@ -36,21 +32,68 @@ Medium
 
 ### OAuth Flow Tests
 
-1. **Device Code Request**: Verify device code is generated correctly from GitHub
-2. **Token Exchange**: Verify access token is received and stored after authorization
-3. **Token Refresh**: Verify expired tokens are refreshed (if applicable)
-4. **Logout**: Verify tokens are cleared on logout
+1. **Device Code Request** - Device code generated correctly
+2. **Token Exchange** - Access token received and stored
+3. **Token Refresh** - Expired tokens refreshed automatically
+4. **Logout** - Tokens cleared completely
 
 ### API Integration Tests
 
-5. **Token Injection**: Verify OAuth tokens are injected into API requests
-6. **Auth Error Handling**: Verify 401 responses trigger re-authentication
-7. **API Calls with Token**: Verify repos, issues, and user data can be fetched
+5. **Token Injection** - OAuth token in all API requests
+6. **Auth Error Handling** - 401 triggers re-authentication
+7. **API Calls** - Repos, issues, user data fetch correctly
 
-### CLI Deprecation Tests
+### Fallback Tests
 
-8. **CLI Removal**: Verify CLI endpoints are no longer called
-9. **Fallback PAT**: Verify manual PAT input still works as fallback
+8. **PAT Input** - Manual token entry works as backup
+
+## Test Rules
+
+### Unit Test Rules
+
+| Rule | Description | Priority |
+|------|-------------|----------|
+| R1 | Device flow must generate unique device codes for each session | High |
+| R2 | Token storage must encrypt tokens before saving to sessionStorage | High |
+| R3 | Token refresh must happen automatically before expiry (5 min buffer) | High |
+| R4 | All API requests must include Authorization header with Bearer token | High |
+| R5 | 401/403 responses must trigger auth state reset and re-login prompt | High |
+| R6 | Network errors during polling must retry with exponential backoff (max 5) | Medium |
+| R7 | Device code expiration (15 min) must show clear error to user | Medium |
+| R8 | Token revocation on GitHub side must be detected and handled | Medium |
+
+### E2E Test Rules
+
+| Rule | Scenario | Expected Result |
+|------|----------|---------------|
+| E1 | Fresh user opens GitHub panel | Login prompt shown immediately |
+| E2 | User clicks Login → copies code → visits github.com/device | Device code entry succeeds |
+| E3 | User authorizes app on GitHub | Token received, issues load automatically |
+| E4 | User refreshes page after login | Auth state persists, no re-login needed |
+| E5 | Token expires while browsing issues | Silent refresh, user sees no interruption |
+| E6 | User revokes app on GitHub settings | Next API call shows re-auth prompt |
+| E7 | User clicks Logout | Token cleared, login prompt shown |
+| E8 | OAuth server returns error | User-friendly error message displayed |
+
+### Security Test Rules
+
+| Rule | Requirement |
+|------|-------------|
+| S1 | Tokens must never be logged to console or sent to error trackers |
+| S2 | sessionStorage must be cleared on browser close (not persistent) |
+| S3 | XSS must not be able to steal tokens from storage |
+| S4 | Man-in-the-middle must not intercept device code exchange |
+| S5 | Token refresh must use rotating refresh tokens if available |
+
+### Edge Case Rules
+
+| Case | Handling |
+|------|----------|
+| Network loss during auth | Show retry button, preserve pending state |
+| User cancels GitHub auth | Return to login screen with "canceled" message |
+| Rate limited by GitHub | Show "too many attempts, try again in X minutes" |
+| Invalid CLIENT_ID | Clear error: "OAuth not configured properly" |
+| Scope insufficient | Detect 403 on API calls, prompt for re-auth with more scopes |
 
 ## Mermaid Diagrams
 
@@ -58,151 +101,97 @@ Medium
 
 ```mermaid
 journey
-    title GitHub OAuth Authentication Journey
+    title GitHub OAuth Authentication
     section Initial Load
       User opens app: 5: User
-      App checks for stored token: 5: System
+      App checks stored token: 5: System
       No token found: 5: System
     section OAuth Flow
-      App shows login screen: 5: System
-      User clicks "Login with GitHub": 5: User
-      App displays device code: 5: System
-      User opens GitHub URL: 5: User
-      User enters device code: 5: User
+      App shows device code: 5: System
+      User visits github.com/device: 5: User
+      User enters code: 5: User
       User authorizes app: 5: User
-    section Token Management
-      GitHub returns token: 5: GitHub
-      App stores token securely: 5: System
-      User sees authenticated state: 5: User
-    section Usage
-      User browses issues: 5: User
-      API calls use stored token: 5: System
-      User logs out: 5: User
+    section Authenticated
+      Token stored: 5: System
+      Issues load: 5: System
 ```
 
 ### System Architecture
 
 ```mermaid
 graph TD
-    subgraph Client
-        UI[UI Components]
-        AuthStore[Auth Store]
-        TokenStorage[Token Storage]
-    end
-
-    subgraph OAuth Service
-        DeviceFlow[Device Flow Service]
-        TokenExchange[Token Exchange]
-    end
-
-    subgraph GitHub
-        GitHubOAuth[GitHub OAuth API]
-        GitHubAPI[GitHub REST API]
-    end
-
-    UI --> AuthStore
-    AuthStore --> TokenStorage
-    AuthStore --> DeviceFlow
-    DeviceFlow --> GitHubOAuth
-    TokenExchange --> GitHubOAuth
-    TokenExchange --> TokenStorage
-    AuthStore --> GitHubAPI
-    GitHubAPI --> GitHub
-
-    style GitHubCLI stroke:#ff6b6b,stroke-dasharray:5
-    style GitHubCLI fill:#ff6b6b,fill-opacity:0.1
+    UI[UI Components] --> AuthStore[Auth Store]
+    AuthStore --> TokenStorage[Token Storage]
+    AuthStore --> DeviceFlow[Device Flow]
+    DeviceFlow --> GitHubOAuth[GitHub OAuth API]
+    AuthStore --> GitHubAPI[GitHub REST API]
 ```
 
 ### Module Structure
 
 ```mermaid
 classDiagram
-    class OAuthAuthenticator {
-        +initiateDeviceFlow()
-        +pollForAuthorization()
-        +exchangeDeviceCode()
-        -handleTokenResponse()
+    class DeviceFlow {
+        +initiate()
+        +pollForToken()
+        +exchangeCode()
     }
     class TokenManager {
-        +storeToken()
-        +getToken()
-        +removeToken()
-        +isTokenValid()
+        +store()
+        +get()
+        +remove()
+        +refresh()
     }
     class AuthStore {
         +isAuthenticated: boolean
-        +user: User | null
         +login()
         +logout()
-        +checkAuth()
     }
-    class APIBridge {
+    class GitHubAPI {
         +fetchRepos()
         +fetchIssues()
-        +fetchUser()
     }
 
-    OAuthAuthenticator --> TokenManager
-    AuthStore --> OAuthAuthenticator
+    DeviceFlow --> TokenManager
+    AuthStore --> DeviceFlow
     AuthStore --> TokenManager
-    APIBridge --> TokenManager
+    GitHubAPI --> TokenManager
 ```
 
-## Implementation Phases
+## Implementation
 
-### Phase 1: OAuth Core
+### Core Components
 
-1. Configure GitHub OAuth App credentials
-2. Enhance `device-flow.ts` with proper CLIENT_ID handling
-3. Add server-side OAuth endpoints for security
-4. Implement secure token storage
+1. **Device Flow** - `src/lib/github/device-flow.ts`
+2. **Token Manager** - Secure storage with refresh
+3. **Auth Store** - Svelte 5 reactive auth state
+4. **API Client** - OAuth token injection
 
-### Phase 2: CLI Deprecation
+### UI Components
 
-1. Mark CLI endpoints as deprecated
-2. Add logging/warnings for CLI usage
-3. Remove CLI dependencies from API bridge
-4. Clean up CLI-related code
+1. **DeviceAuthModal** - Shows device code and instructions
+2. **Auth Status** - Shows login/logout state
+3. **Error Handling** - OAuth failure messages
 
-### Phase 3: UI/UX
-
-1. Update auth modal with OAuth flow
-2. Add "Login with GitHub" button
-3. Improve error messages for OAuth failures
-4. Add re-authentication flow for expired tokens
-
-### Phase 4: Testing & Polish
-
-1. Add unit tests for OAuth components
-2. Add E2E tests for auth flow
-3. Update documentation
-4. Performance optimization
-
-## Files to Modify
-
-### New Files
-
-- `src/lib/github/oauth-client.ts` - OAuth client wrapper
-- `src/lib/server/oauth-endpoints.ts` - Server-side OAuth handlers
-- `src/lib/auth/oauth-store.svelte.ts` - Reactive auth store
-
-### Modified Files
-
-- `src/lib/github/device-flow.ts` - Enhance with server-side support
-- `src/lib/github/auth.ts` - Update token storage
-- `src/lib/github/api.ts` - Ensure OAuth token injection
-- `src/lib/components/DeviceAuthModal.svelte` - Update UI
-- `src/lib/stores/github.svelte.ts` - Update GitHub store
-
-### Deprecated Files (to be removed)
-
-- `src/routes/api/github/gh-cli/token/+server.ts`
-- `src/routes/api/github/gh-cli/check/+server.ts`
-- Related CLI integration code in `dual-api.ts`
-
-## Environment Variables Required
+### Files
 
 ```
-VITE_GITHUB_DEVICE_CLIENT_ID=<your-github-oauth-app-client-id>
+src/lib/github/
+  ├── device-flow.ts       # Device flow implementation
+  ├── oauth-client.ts      # OAuth API client
+  ├── token-manager.ts     # Token storage & refresh
+  └── api.ts               # GitHub API with auth
+
+src/lib/stores/
+  └── auth.svelte.ts       # Auth state store
+
+src/lib/components/
+  └── DeviceAuthModal.svelte
+```
+
+### Environment
+
+```
+VITE_GITHUB_DEVICE_CLIENT_ID=<oauth-app-client-id>
 VITE_GITHUB_OAUTH_SCOPES=repo,read:org
 ```
